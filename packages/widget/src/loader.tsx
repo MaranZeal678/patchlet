@@ -13,6 +13,13 @@ type Config = { key: string; apiBase: string; position: 'left' | 'right' };
 
 const HOST_TAG = 'patchlet-widget';
 
+/** The console links here with a question so a support lead can replay it on the real site. */
+const ASK_PARAM = 'patchlet_ask';
+
+function pendingQuestion(): string {
+  return new URLSearchParams(location.search).get(ASK_PARAM)?.trim() ?? '';
+}
+
 function readConfig(): Config | null {
   const script = document.currentScript as HTMLScriptElement | null;
   const element = script ?? document.querySelector<HTMLScriptElement>('script[data-key]');
@@ -29,6 +36,9 @@ function readConfig(): Config | null {
 
 function mount(config: Config): void {
   if (document.querySelector(HOST_TAG)) return;
+
+  // `register` runs on every render, so the replayed question is asked once and then cleared.
+  let pending = pendingQuestion();
 
   const host = document.createElement(HOST_TAG);
   host.setAttribute('data-pl-scheme', detectScheme());
@@ -55,6 +65,12 @@ function mount(config: Config): void {
       position={config.position}
       register={(api) => {
         window.Patchlet = api;
+        if (pending) {
+          const question = pending;
+          pending = '';
+          // The host page may still be settling, and the scan must see its real controls.
+          setTimeout(() => window.Patchlet?.ask(question), 400);
+        }
       }}
     />,
     container,

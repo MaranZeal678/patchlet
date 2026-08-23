@@ -47,3 +47,22 @@ export async function loadWorkerStatus(projectId: string): Promise<WorkerStatus>
   const seen = lastSeenAt ? new Date(lastSeenAt).getTime() : Number.NaN;
   return { lastSeenAt, online: Number.isFinite(seen) && Date.now() - seen < 120_000 };
 }
+
+/** Escalations grouped by the status they are sitting in, newest schema values included. */
+export async function loadEscalationStatusCounts(
+  projectId: string,
+): Promise<{ status: string; count: number }[]> {
+  const { data } = await serviceClient()
+    .from("escalation")
+    .select("status")
+    .eq("project_id", projectId);
+
+  const tally = new Map<string, number>();
+  for (const row of data ?? []) {
+    const status = String(row.status);
+    tally.set(status, (tally.get(status) ?? 0) + 1);
+  }
+  return [...tally.entries()]
+    .map(([status, count]) => ({ status, count }))
+    .sort((a, b) => b.count - a.count);
+}

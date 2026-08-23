@@ -50,3 +50,12 @@ const STATUS_LABEL: Record<string, string> = {
 export function escalationLabel(status: string): string {
   return STATUS_LABEL[status] ?? status.replace(/_/g, " ");
 }
+
+/** "4m 12s" - how long a conversation ran, or "-" when there is only one message. */
+export function formatDuration(ms: number | null): string {
+  if (ms === null || !Number.isFinite(ms) || ms < 0) return "-";
+  const totalSeconds = Math.round(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes === 0 ? `${seconds}s` : `${minutes}m ${seconds}s`;
+}

@@ -59,6 +59,8 @@ create table conversation (
   project_id uuid not null references project on delete cascade,
   page_url text,
   page_title text,
+  outcome text,                            -- 'solved' | 'missing_feature' | 'unresolved' (migration 0003)
+  summary text,                            -- one sentence, written when the turn finishes
   created_at timestamptz not null default now()
 );
 
@@ -245,7 +247,8 @@ because there is a single seeded project.
 | `GET /api/documents` | - | `{documents: Document[]}` |
 | `POST /api/documents` | multipart `file` (pdf, png, jpg, md, txt, html), or JSON `{url}`, or JSON `{title, text}` | ingests synchronously, returns the document row |
 | `DELETE /api/documents/:id` | - | `{ok: true}` |
-| `GET /api/conversations` | `?limit=` | recent conversations with their messages |
+| `GET /api/conversations` | `?limit=`, `?outcome=` (`solved`, `missing_feature`, `unresolved`) | `{conversations: ConversationSummary[], counts}`, newest first |
+| `GET /api/conversations/:id` | - | `{conversation}`: every message in order with its steps, probes, verdict and feature request, plus the escalation |
 | `GET /api/escalations` | - | `{escalations: Escalation[]}`, newest first |
 | `POST /api/escalations/:id/approve` | `{approved: boolean, note?: string}` | `{ok: true, status}` |
 | `GET /api/trace/stream` | `?since=&conversationId=&escalationId=` | SSE; `id:` is the `trace_event.id`, `event: trace`, `data: TraceEvent` |
@@ -319,6 +322,13 @@ The console renders these specially and falls back to a key/value list for anyth
    Persist the assistant message with its steps, probes, verdict and feature request. Emit `answer`.
 6. Every stage writes `trace_event` rows, which is what makes the console's Activity page show the
    chat-side reasoning live.
+7. Close the conversation out for the console: `outcome` is `solved` when the answer carried
+   guidance steps, `missing_feature` when the verdict was `absent`, and `unresolved` otherwise;
+   `summary` is one sentence written with `MODELS.understand`. Both are best-effort and never
+   fail the turn.
+
+The console links back to the customer's site with `?patchlet_ask=<question>`; the widget reads that
+parameter on load, opens, and asks the question once.
 
 `POST /api/escalate` inserts the `escalation` row, writes a trace event recording that the user
 accepted, then starts the engine. Under `mistral` it executes the workflow with input

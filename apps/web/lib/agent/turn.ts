@@ -15,6 +15,7 @@ import { chatJson } from "../mistral";
 import { serviceClient } from "../supabase";
 import { emitTrace } from "../trace";
 import { probeDocs, probeInterface, probeRepository } from "./probes";
+import { closeConversation } from "./summary";
 
 export type TurnInput = {
   projectId: string;
@@ -280,4 +281,11 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
     conversationId,
     messageId: (assistantMessage?.id as string) ?? messageId,
   };
+
+  // 6. Record how this ended. The user already has the answer; this is only for the console.
+  try {
+    await closeConversation({ conversationId, question, answer: text, steps, verdict });
+  } catch {
+    // A missing outcome shows as "in progress" in the console and is not worth failing a turn.
+  }
 }
