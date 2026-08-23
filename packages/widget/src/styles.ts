@@ -130,6 +130,14 @@ const SHEET = `
 }
 .pl-root[data-position="left"] .pl-panel { transform-origin: bottom left; }
 :host([data-pl-scheme="dark"]) .pl-panel::before { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1); }
+/* The light sheen across the top of the glass is tuned for a pale ground. At full strength on a
+   dark host it reads as a smudge, so the dark scheme gets the same shape at a fifth of it. */
+:host([data-pl-scheme="dark"]) .pl-panel {
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 34%),
+    radial-gradient(120% 80% at 90% 0%, rgba(46, 111, 84, 0.18), transparent 60%),
+    var(--pl-glass);
+}
 
 @keyframes pl-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
 
@@ -243,7 +251,7 @@ const SHEET = `
 }
 .pl-card p { margin: 0; font-size: 13.5px; white-space: pre-wrap; }
 .pl-card__label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--pl-muted); }
-.pl-card__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.pl-card__actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 .pl-btn {
   appearance: none;
@@ -312,7 +320,14 @@ const SHEET = `
   color: var(--pl-ink);
   max-height: 96px;
   padding: 3px 0;
+  /* The field grows to fit its text, so it only scrolls once it hits the cap. Left on auto it
+     shows a scrollbar with stepper arrows on a one-line question. */
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
+.pl-composer textarea::-webkit-scrollbar { width: 6px; }
+.pl-composer textarea::-webkit-scrollbar-button { display: none; }
+.pl-composer textarea::-webkit-scrollbar-thumb { border-radius: 999px; background: var(--pl-hairline); }
 .pl-composer textarea::placeholder { color: var(--pl-muted); }
 .pl-send {
   appearance: none;
@@ -373,17 +388,45 @@ const SHEET = `
   background: var(--pl-glass-strong);
   -webkit-backdrop-filter: var(--pl-blur);
   backdrop-filter: var(--pl-blur);
-  box-shadow: var(--pl-shadow);
-  padding: 12px;
+  box-shadow: var(--pl-shadow), var(--pl-highlight);
+  padding: 12px 13px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
   color: var(--pl-ink);
   transition: transform 160ms ease;
 }
-.pl-spot__counter { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--pl-muted); }
-.pl-spot__caption { margin: 0; font-size: 13.5px; }
-.pl-spot__actions { display: flex; justify-content: flex-end; gap: 8px; }
+/* A caret on the edge facing the ring, so the caption reads as being about that control and
+   not as a notice that happens to be nearby. */
+.pl-spot__bubble::after {
+  content: "";
+  position: absolute;
+  left: 24px;
+  width: 11px;
+  height: 11px;
+  background: var(--pl-glass-strong);
+  border: 1px solid var(--pl-border);
+  transform: rotate(45deg);
+}
+.pl-spot__bubble[data-side="below"]::after {
+  top: -6.5px;
+  border-right: 0;
+  border-bottom: 0;
+}
+.pl-spot__bubble[data-side="above"]::after {
+  bottom: -6.5px;
+  border-left: 0;
+  border-top: 0;
+}
+.pl-spot__counter {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pl-accent);
+}
+.pl-spot__caption { margin: 0; font-size: 13.5px; line-height: 1.45; }
+.pl-spot__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 1px; }
 .pl-spot--busy .pl-spot__caption { opacity: 0.6; }
 
 @media (prefers-reduced-motion: reduce) {

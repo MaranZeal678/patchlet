@@ -131,8 +131,10 @@ export class Spotlight {
 
     const below = y + h + GAP;
     const bubbleHeight = this.bubble.offsetHeight || 120;
-    const top = below + bubbleHeight < height ? below : Math.max(y - GAP - bubbleHeight, 8);
+    const fitsBelow = below + bubbleHeight < height;
+    const top = fitsBelow ? below : Math.max(y - GAP - bubbleHeight, 8);
     const left = Math.min(Math.max(x, 8), Math.max(width - BUBBLE_WIDTH - 8, 8));
+    this.bubble.dataset.side = fitsBelow ? 'below' : 'above';
     this.bubble.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
   }
 }

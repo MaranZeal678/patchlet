@@ -28,6 +28,7 @@ export function Composer(props: ComposerProps) {
     if (!node) return;
     node.style.height = 'auto';
     node.style.height = `${Math.min(node.scrollHeight, 96)}px`;
+    node.style.overflowY = node.scrollHeight > 96 ? 'auto' : 'hidden';
     setHeight(node.scrollHeight);
   }, [props.value]);
 
