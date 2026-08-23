@@ -1,73 +1,102 @@
 import Link from "next/link";
-import { Glass } from "@/components/Glass";
+import { EmbedSnippet } from "@/components/EmbedSnippet";
 
 const STEPS = [
   {
-    title: "It answers from your documentation",
-    body: "Upload a handbook, a PDF or a URL. Answers are grounded in what you actually wrote, and scanned pages are discounted by how well they read.",
+    title: "It reads your product",
+    body: "Upload your documentation and connect the repository. Mistral OCR parses every page, and the answers are grounded in what you actually shipped.",
   },
   {
-    title: "It shows people the real controls",
-    body: "The widget scans the page the user is looking at and hands the agent opaque handles, never selectors. A plan that names a control which is not there is thrown away.",
+    title: "It shows people where to click",
+    body: "The agent reads the page the user is on and points at the real control, step by step, instead of reciting directions they have to translate.",
   },
   {
     title: "It builds what is missing",
-    body: "Three checks have to agree a feature does not exist. Then it files the issue, drafts the change, opens a draft pull request, and waits for a human.",
+    body: "When a feature genuinely does not exist, it says so, files the request, and Codestral drafts the change. A developer approves, and the product ships.",
   },
 ];
 
-const SNIPPET = `<script src="https://patchlet-v2.vercel.app/widget.js"
-        data-key="pk_your_project_key" async></script>`;
+const PROOF = [
+  { label: "Checks before it answers", value: "Three" },
+  { label: "From question to guidance", value: "Under 4s" },
+  { label: "Built entirely on", value: "Mistral" },
+];
 
-export default function LandingPage() {
+export default function Home() {
   return (
-    <div className="mx-auto max-w-5xl px-6 py-20">
-      <header className="mb-16 max-w-3xl">
-        <p className="mb-5 inline-flex items-center rounded-full border border-[var(--hairline)] bg-white/60 px-3 py-1 text-[13px] text-[var(--muted)]">
-          Support that closes the loop
-        </p>
-        <h1 className="text-[46px] leading-[1.08] tracking-[-0.03em]">
-          Support that fixes the product
-        </h1>
-        <p className="mt-5 text-[17px] leading-relaxed text-[var(--muted)]">
-          Patchlet answers from your documentation, guides people on the page they are already
-          looking at, and when a feature does not exist it opens the pull request that adds it.
-        </p>
-        <div className="mt-8 flex flex-wrap items-center gap-3">
-          <Link href="/console" className="btn btn-primary">
-            Open the console
+    <main className="landing">
+      <header className="landing__bar">
+        <span className="landing__mark">Patchlet</span>
+        <nav className="landing__nav">
+          <a href="#how">How it works</a>
+          <a href="#embed">Install</a>
+          <Link className="landing__cta" href="/console">
+            Open console
           </Link>
-          <Link href="/console/activity" className="btn">
-            See a live trace
-          </Link>
-        </div>
+        </nav>
       </header>
 
-      <div className="mb-8 grid gap-4 md:grid-cols-3">
-        {STEPS.map((step, index) => (
-          <Glass key={step.title} className="flex flex-col">
-            <span className="mono mb-4 text-[var(--accent)]">0{index + 1}</span>
-            {/* A fixed heading block keeps the three bodies on the same line when a title wraps. */}
-            <h2 className="mb-2 min-h-[3.25rem] text-[17px]">{step.title}</h2>
-            <p className="text-[14px] leading-relaxed text-[var(--muted)]">{step.body}</p>
-          </Glass>
-        ))}
-      </div>
-
-      <Glass tone="strong">
-        <h2 className="mb-1 text-[17px]">Add it to your app</h2>
-        <p className="mb-4 text-[14px] text-[var(--muted)]">
-          One script tag. The key identifies your project and nothing else, so it is safe in your
-          page source.
+      <section className="hero">
+        <div className="hero__rings" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        <p className="hero__eyebrow">
+          <span className="hero__dot" aria-hidden="true" />
+          Support that closes the loop
         </p>
-        <pre className="mono overflow-x-auto rounded-[8px] border border-[var(--hairline)] bg-white/70 p-4 text-[var(--ink)]">
-          <code>{SNIPPET}</code>
-        </pre>
-      </Glass>
+        <h1 className="hero__title">
+          Support that <em>sees</em> your product and <em>fixes</em> what it is missing.
+        </h1>
+        <p className="hero__lead">
+          Patchlet answers from your own documentation, guides people to the right control on the
+          page they are looking at, and turns the requests you cannot answer into real changes.
+        </p>
+        <div className="hero__actions">
+          <Link className="btn btn--primary" href="/console">
+            Open the console
+          </Link>
+          <a className="btn btn--ghost" href="#how">
+            See how it works <span aria-hidden="true">→</span>
+          </a>
+        </div>
+        <dl className="proof">
+          {PROOF.map((item) => (
+            <div key={item.label} className="proof__item">
+              <dt>{item.value}</dt>
+              <dd>{item.label}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
 
-      <footer className="mt-16 border-t border-[var(--hairline)] pt-6 text-[13px] text-[var(--faint)]">
-        Patchlet
+      <section id="how" className="section">
+        <h2 className="section__title">Three things, in order</h2>
+        <div className="cards">
+          {STEPS.map((step, index) => (
+            <article key={step.title} className="card">
+              <span className="card__index">{String(index + 1).padStart(2, "0")}</span>
+              <h3>{step.title}</h3>
+              <p>{step.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section id="embed" className="section section--alt">
+        <h2 className="section__title">One script tag</h2>
+        <p className="section__lead">
+          Drop this into the page you want supported. Nothing else changes, and the widget never
+          touches your styles.
+        </p>
+        <EmbedSnippet />
+      </section>
+
+      <footer className="landing__foot">
+        <span>Patchlet</span>
+        <Link href="/console">Console</Link>
       </footer>
-    </div>
+    </main>
   );
 }
