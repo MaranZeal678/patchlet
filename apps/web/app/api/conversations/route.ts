@@ -16,7 +16,7 @@ export async function GET(request: Request): Promise<Response> {
   if (!project) {
     return corsJson({
       conversations: [],
-      counts: { all: 0, solved: 0, missing_feature: 0, unresolved: 0 },
+      counts: { all: 0, solved: 0, product_bug: 0, missing_feature: 0, unresolved: 0 },
     });
   }
 

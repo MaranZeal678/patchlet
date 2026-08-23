@@ -5,6 +5,7 @@ import {
   isConversationOutcome,
   outcomeLabel,
   outcomeTone,
+  reconcileOutcome,
 } from "@/lib/agent/outcome";
 
 const step: Step = { target: "a1", caption: "Open the account menu", advanceOn: "click" };
@@ -36,9 +37,36 @@ describe("deriveOutcome", () => {
   });
 });
 
+describe("reconcileOutcome", () => {
+  it("lets the model call an unresolved conversation a product bug", () => {
+    expect(reconcileOutcome("unresolved", "product_bug")).toBe("product_bug");
+  });
+
+  it("lets the model tell a broken feature apart from a missing one", () => {
+    expect(reconcileOutcome("missing_feature", "product_bug")).toBe("product_bug");
+  });
+
+  it("reports a bug even when the agent found the user a way round it", () => {
+    expect(reconcileOutcome("solved", "product_bug")).toBe("product_bug");
+  });
+
+  it("never lets the model take back guidance for any other reason", () => {
+    expect(reconcileOutcome("solved", "unresolved")).toBe("solved");
+    expect(reconcileOutcome("solved", "missing_feature")).toBe("solved");
+  });
+
+  it("keeps the derived outcome for every other suggestion", () => {
+    expect(reconcileOutcome("missing_feature", "solved")).toBe("missing_feature");
+    expect(reconcileOutcome("unresolved", "missing_feature")).toBe("unresolved");
+    expect(reconcileOutcome("unresolved", null)).toBe("unresolved");
+    expect(reconcileOutcome("unresolved", "nonsense")).toBe("unresolved");
+  });
+});
+
 describe("outcome labels", () => {
-  it("accepts only the three stored values", () => {
+  it("accepts only the four stored values", () => {
     expect(isConversationOutcome("solved")).toBe(true);
+    expect(isConversationOutcome("product_bug")).toBe(true);
     expect(isConversationOutcome("missing_feature")).toBe(true);
     expect(isConversationOutcome("unresolved")).toBe(true);
     expect(isConversationOutcome("shipped")).toBe(false);
@@ -47,6 +75,8 @@ describe("outcome labels", () => {
   it("reads as plain English, and says so when a turn is still running", () => {
     expect(outcomeLabel("solved")).toBe("Solved");
     expect(outcomeLabel("missing_feature")).toBe("Missing feature");
+    expect(outcomeLabel("product_bug")).toBe("Product bug");
+    expect(outcomeTone("product_bug")).toBe("is-bad");
     expect(outcomeLabel(null)).toBe("In progress");
     expect(outcomeTone("solved")).toBe("is-good");
     expect(outcomeTone(null)).toBe("is-muted");

@@ -6,6 +6,7 @@ import { browserSupabase } from "@/lib/auth/browser";
 
 type Props = {
   email: string;
+  /** The company the account signed up as. The project slug is never shown to a person. */
   company: string | null;
   /** The linked GitHub login, when the project has one. */
   githubLogin: string | null;
@@ -24,6 +25,8 @@ export function AccountMenu({ email, company, githubLogin }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
+  const [error, setError] = useState("");
   const root = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -42,6 +45,21 @@ export function AccountMenu({ email, company, githubLogin }: Props) {
     };
   }, [open]);
 
+  async function disconnectGithub() {
+    setUnlinking(true);
+    setError("");
+    try {
+      const response = await fetch("/api/github/disconnect", { method: "POST" });
+      if (!response.ok) throw new Error("GitHub could not be disconnected.");
+      setOpen(false);
+      router.refresh();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "GitHub could not be disconnected.");
+    } finally {
+      setUnlinking(false);
+    }
+  }
+
   async function signOut() {
     setSigningOut(true);
     await browserSupabase().auth.signOut();
@@ -51,6 +69,13 @@ export function AccountMenu({ email, company, githubLogin }: Props) {
 
   return (
     <div className="account" ref={root}>
+      {githubLogin ? (
+        <span className="account-github" title={`Connected as @${githubLogin}`}>
+          <GithubGlyph />
+          <span className="sr-only">GitHub connected as @{githubLogin}</span>
+        </span>
+      ) : null}
+
       <button
         type="button"
         className={`account-trigger${open ? " is-open" : ""}`}
@@ -86,10 +111,24 @@ export function AccountMenu({ email, company, githubLogin }: Props) {
           <div className="account-menu__divider" />
           {githubLogin ? (
             <div className="account-menu__row">
-              <GithubGlyph />
-              <span>@{githubLogin}</span>
+              <span className="account-menu__github">
+                <GithubGlyph />@{githubLogin}
+              </span>
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => void disconnectGithub()}
+                disabled={unlinking}
+              >
+                {unlinking ? "Disconnecting..." : "Disconnect"}
+              </button>
             </div>
-          ) : null}
+          ) : (
+            <a className="account-menu__item" role="menuitem" href="/api/github/connect">
+              Link GitHub
+            </a>
+          )}
+          {error ? <p className="account-menu__error">{error}</p> : null}
           <button
             type="button"
             role="menuitem"

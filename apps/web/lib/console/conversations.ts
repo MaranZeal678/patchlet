@@ -20,6 +20,11 @@ export type ConversationSummary = {
   id: string;
   outcome: string | null;
   summary: string | null;
+  /** Verbatim from the user, supporting the outcome. */
+  evidence: string[] | null;
+  nextSteps: string[] | null;
+  resolution: string | null;
+  closeReason: string | null;
   question: string | null;
   pageUrl: string | null;
   pageTitle: string | null;
@@ -48,6 +53,9 @@ export type ConversationDetail = ConversationSummary & {
 
 export type OutcomeCounts = { all: number } & Record<ConversationOutcome, number>;
 
+const CONVERSATION_COLUMNS =
+  "id, page_url, page_title, outcome, summary, evidence, next_steps, resolution, close_reason, visitor_id, created_at";
+
 const MESSAGE_COLUMNS =
   "id, conversation_id, role, content, steps, probes, verdict, feature_request, created_at";
 
@@ -57,6 +65,13 @@ function text(value: unknown): string | null {
 
 function number(value: unknown): number | null {
   return value === null || value === undefined ? null : Number(value);
+}
+
+/** A jsonb column the model filled: a list of strings, or nothing worth showing. */
+function lines(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const kept = value.filter((entry): entry is string => typeof entry === "string" && entry.trim() !== "");
+  return kept.length > 0 ? kept : null;
 }
 
 function toEscalation(row: Record<string, unknown>): ConversationEscalation {
@@ -123,7 +138,7 @@ export async function loadConversationSummaries(
 
   let query = db
     .from("conversation")
-    .select("id, page_url, page_title, outcome, summary, created_at")
+    .select(CONVERSATION_COLUMNS)
     .eq("project_id", projectId);
   if (options.outcome) query = query.eq("outcome", options.outcome);
 
@@ -159,6 +174,10 @@ export async function loadConversationSummaries(
       id,
       outcome: text(row.outcome),
       summary: text(row.summary),
+      evidence: lines(row.evidence),
+      nextSteps: lines(row.next_steps),
+      resolution: text(row.resolution),
+      closeReason: text(row.close_reason),
       question: questions.get(id) ?? null,
       pageUrl: text(row.page_url),
       pageTitle: text(row.page_title),
@@ -203,7 +222,7 @@ export async function loadConversationDetail(
   const db = serviceClient();
   const { data: row } = await db
     .from("conversation")
-    .select("id, page_url, page_title, outcome, summary, visitor_id, created_at")
+    .select(CONVERSATION_COLUMNS)
     .eq("project_id", projectId)
     .eq("id", id)
     .maybeSingle();
@@ -223,6 +242,10 @@ export async function loadConversationDetail(
     id: String(row.id),
     outcome: text(row.outcome),
     summary: text(row.summary),
+    evidence: lines(row.evidence),
+    nextSteps: lines(row.next_steps),
+    resolution: text(row.resolution),
+    closeReason: text(row.close_reason),
     question: turns.find((turn) => turn.role === "user")?.content ?? null,
     pageUrl: text(row.page_url),
     pageTitle: text(row.page_title),

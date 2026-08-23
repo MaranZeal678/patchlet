@@ -4,7 +4,7 @@
  */
 import { corsJson, preflight } from "@/lib/cors";
 import { loadProject } from "@/lib/console/project";
-import { sourceFromDocument } from "@/lib/ingest/request";
+import { sourceFromDocument, type StoredDocument } from "@/lib/ingest/request";
 import { reingestSource } from "@/lib/ingest/run";
 import { fileSource } from "@/lib/ingest/sources";
 import type { ParsedSource } from "@/lib/ingest/types";
@@ -18,10 +18,8 @@ export function OPTIONS(): Response {
   return preflight();
 }
 
-type StoredSource = Parameters<typeof sourceFromDocument>[0];
-
 /** A replacement file when one was attached, otherwise whatever the row can be rebuilt from. */
-async function sourceFor(request: Request, row: StoredSource): Promise<ParsedSource> {
+async function sourceFor(request: Request, row: StoredDocument): Promise<ParsedSource> {
   const contentType = request.headers.get("content-type") ?? "";
   if (!contentType.includes("multipart/form-data")) return sourceFromDocument(row);
 
@@ -42,14 +40,14 @@ export async function POST(
 
   const { data } = await serviceClient()
     .from("document")
-    .select("id, title, source_kind, source_ref, source_text")
+    .select("id, title, source_kind, source_ref, source_text, storage_path, mime")
     .eq("id", id)
     .eq("project_id", project.id)
     .maybeSingle();
   if (!data) return corsJson({ error: "No such source." }, { status: 404 });
 
   try {
-    const source = await sourceFor(request, data as StoredSource);
+    const source = await sourceFor(request, data as StoredDocument);
     const document = await reingestSource(project.id, id, source);
     return corsJson({ document });
   } catch (failure) {

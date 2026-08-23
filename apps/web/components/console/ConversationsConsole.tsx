@@ -13,7 +13,7 @@ import type {
 
 type Filter = "all" | ConversationOutcome;
 
-const FILTERS: Filter[] = ["all", "solved", "missing_feature", "unresolved"];
+const FILTERS: Filter[] = ["all", "solved", "product_bug", "missing_feature", "unresolved"];
 
 function filterLabel(filter: Filter): string {
   return filter === "all" ? "All" : outcomeLabel(filter);

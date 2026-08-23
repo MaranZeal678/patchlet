@@ -13,7 +13,7 @@ export default async function ConversationsPage() {
         loadConversationSummaries(project.id, { limit: 60 }),
         loadOutcomeCounts(project.id),
       ])
-    : [[], { all: 0, solved: 0, missing_feature: 0, unresolved: 0 }];
+    : [[], { all: 0, solved: 0, product_bug: 0, missing_feature: 0, unresolved: 0 }];
 
   return (
     <>
