@@ -16,7 +16,14 @@ export class VoiceRecorder {
     return this.recorder?.state === 'recording';
   }
 
-  async start(): Promise<void> {
+  private audio: AudioContext | null = null;
+  private silenceTimer: number | null = null;
+
+  /**
+   * Starts listening. `onSilence` fires once the speaker has clearly stopped,
+   * which is how a phone keyboard behaves: you talk, you pause, it submits.
+   */
+  async start(onSilence?: () => void): Promise<void> {
     if (this.recording) return;
     this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     this.chunks = [];
@@ -25,6 +32,44 @@ export class VoiceRecorder {
       if (event.data.size > 0) this.chunks.push(event.data);
     });
     this.recorder.start(250);
+    if (onSilence) this.watchForSilence(onSilence);
+  }
+
+  /** Ends the turn after a pause, but only once speech has actually started. */
+  private watchForSilence(onSilence: () => void): void {
+    if (!this.stream) return;
+    type WindowWithLegacyAudio = Window & { webkitAudioContext?: typeof AudioContext };
+    const Ctor = window.AudioContext ?? (window as WindowWithLegacyAudio).webkitAudioContext;
+    if (!Ctor) return;
+    this.audio = new Ctor();
+    const source = this.audio.createMediaStreamSource(this.stream);
+    const analyser = this.audio.createAnalyser();
+    analyser.fftSize = 1024;
+    source.connect(analyser);
+    const samples = new Uint8Array(analyser.frequencyBinCount);
+    let heardSpeech = false;
+    let quietSince = 0;
+
+    const tick = (): void => {
+      if (!this.recording) return;
+      analyser.getByteTimeDomainData(samples);
+      let peak = 0;
+      for (const sample of samples) peak = Math.max(peak, Math.abs(sample - 128));
+      const speaking = peak > 8;
+      const now = Date.now();
+      if (speaking) {
+        heardSpeech = true;
+        quietSince = 0;
+      } else if (heardSpeech) {
+        if (quietSince === 0) quietSince = now;
+        else if (now - quietSince > 1400) {
+          onSilence();
+          return;
+        }
+      }
+      this.silenceTimer = window.setTimeout(tick, 120);
+    };
+    tick();
   }
 
   /** Resolves with the recorded audio, or null when nothing was captured. */
@@ -52,6 +97,10 @@ export class VoiceRecorder {
   }
 
   private release(): void {
+    if (this.silenceTimer !== null) window.clearTimeout(this.silenceTimer);
+    this.silenceTimer = null;
+    void this.audio?.close().catch(() => undefined);
+    this.audio = null;
     this.stream?.getTracks().forEach((track) => track.stop());
     this.stream = null;
     this.recorder = null;

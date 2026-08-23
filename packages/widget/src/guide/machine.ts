@@ -159,9 +159,10 @@ export class GuideMachine {
     this.transition('SNAPSHOTTING');
     this.index += 1;
     if (this.index >= this.steps.length) {
-      this.stopListening();
-      this.target = null;
-      this.transition('DONE');
+      // A flow often continues behind whatever the last click opened, so the
+      // plan we hold is only as far as the page could be read at the time.
+      // Ask for the rest before deciding the user is finished.
+      void this.continueOrFinish();
       return;
     }
     // Ids are positional, so a re-render can point the same id at a different
@@ -198,6 +199,33 @@ export class GuideMachine {
     if (this.target && this.target.isConnected) return;
     void this.recover();
   };
+
+
+  /**
+   * Asks the agent whether anything is left now that the page has changed.
+   * Guidance ends only when the answer is "nothing".
+   */
+  private async continueOrFinish(): Promise<void> {
+    if (this.replanning) return;
+    this.replanning = true;
+    try {
+      const replanned = await this.deps.replan(this.index);
+      if (replanned && replanned.steps.length > 0) {
+        this.steps = [...this.steps.slice(0, this.index), ...replanned.steps];
+        this.adoptScan(replanned);
+        this.replanning = false;
+        this.enterSpotlight();
+        return;
+      }
+    } catch {
+      // Fall through: finishing quietly is better than an error the user
+      // cannot act on, because every step so far already succeeded.
+    }
+    this.replanning = false;
+    this.stopListening();
+    this.target = null;
+    this.transition('DONE');
+  }
 
   private async recover(): Promise<void> {
     if (this.replanning) return;

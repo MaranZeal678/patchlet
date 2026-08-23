@@ -69,7 +69,7 @@ export function Composer(props: ComposerProps) {
             aria-pressed={props.voiceOn}
             aria-label={micLabel}
             title={micLabel}
-            onClick={() => (props.voiceOn ? props.onToggleRecording() : props.onToggleVoice())}
+            onClick={() => props.onToggleRecording()}
           >
             <MicIcon />
           </button>

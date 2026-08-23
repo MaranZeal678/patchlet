@@ -9,14 +9,12 @@ export function MessageList({
   elapsedSeconds,
   onShowMe,
   onReport,
-  onSuggestion,
 }: {
   turns: Turn[];
   guidingTurnId: string | null;
   elapsedSeconds: number;
   onShowMe: (turn: Turn) => void;
   onReport: (turn: Turn) => void;
-  onSuggestion: (question: string) => void;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -61,7 +59,6 @@ function TurnView({
   onShowMe: (turn: Turn) => void;
   onReport: (turn: Turn) => void;
 }) {
-  const answered = Boolean(turn.answer);
   const offer = turn.answer?.escalation;
   return (
     <>

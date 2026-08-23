@@ -264,30 +264,41 @@ export function App({ client, shadow, host, position, register }: AppProps) {
     player.stop();
   }, [player]);
 
+  /** Ends the turn: transcribe what was captured and ask it. */
+  const finishRecording = useCallback(async () => {
+    setRecording(false);
+    setTranscribing(true);
+    try {
+      const audio = await recorder.stop();
+      if (audio) {
+        const text = await client.transcribe(audio);
+        if (text) void ask(text);
+      }
+    } catch {
+      setAnnouncement('The microphone is not available.');
+    } finally {
+      setTranscribing(false);
+    }
+  }, [ask, client, recorder]);
+
+  const finishRef = useRef(finishRecording);
+  finishRef.current = finishRecording;
+
+  // One press starts listening. It ends on a pause in speech, or on a second
+  // press, which is what people already expect from a phone keyboard.
   const toggleRecording = useCallback(async () => {
     if (recording) {
-      setRecording(false);
-      setTranscribing(true);
-      try {
-        const audio = await recorder.stop();
-        if (audio) {
-          const text = await client.transcribe(audio);
-          if (text) void ask(text);
-        }
-      } catch {
-        setAnnouncement('The microphone is not available.');
-      } finally {
-        setTranscribing(false);
-      }
+      await finishRecording();
       return;
     }
     try {
-      await recorder.start();
+      setVoiceOn(true);
+      await recorder.start(() => void finishRef.current());
       setRecording(true);
     } catch {
       setAnnouncement('Microphone access was declined.');
     }
-  }, [ask, client, recorder, recording]);
+  }, [finishRecording, recorder, recording]);
 
   return (
     <div class="pl-root" data-position={position}>
@@ -310,7 +321,6 @@ export function App({ client, shadow, host, position, register }: AppProps) {
             elapsedSeconds={elapsedSeconds}
             onShowMe={startGuidance}
             onReport={(turn) => void report(turn)}
-            onSuggestion={(question) => void ask(question)}
           />
           <Composer
             value={draft}
