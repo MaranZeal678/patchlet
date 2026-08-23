@@ -59,3 +59,23 @@ export function formatDuration(ms: number | null): string {
   const seconds = totalSeconds % 60;
   return minutes === 0 ? `${seconds}s` : `${minutes}m ${seconds}s`;
 }
+
+/** "just now", "3m ago", "2h ago", "5d ago" - how recent a source is, at a glance. */
+export function formatRelativeTime(iso: string, now: number = Date.now()): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const seconds = Math.max(0, Math.round((now - then) / 1000));
+  if (seconds < 45) return "just now";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+/** "1.2 MB" - a file size a person can read. */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

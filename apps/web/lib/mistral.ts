@@ -120,8 +120,19 @@ export async function embed(texts: string[]): Promise<number[][]> {
   });
 }
 
-export type OcrBlock = { confidence: number | null };
-export type OcrPage = { index: number; markdown: string; blocks: OcrBlock[] };
+export type OcrBlock = {
+  /** What the reader thought this region is: "title", "text", "table", and so on. */
+  type: string;
+  /** The region's own markdown, so a low-confidence block can be shown on its own. */
+  content: string;
+  confidence: number | null;
+};
+export type OcrPage = {
+  index: number;
+  markdown: string;
+  confidence: number | null;
+  blocks: OcrBlock[];
+};
 export type OcrResult = { pages: OcrPage[] };
 
 /** Runs OCR over a document supplied as a data URL. */
@@ -136,7 +147,12 @@ export async function ocr(dataUrl: string): Promise<OcrResult> {
     pages?: {
       index?: number;
       markdown?: string;
-      blocks?: { confidence_scores?: { average_content_confidence_score?: number } }[];
+      confidence_scores?: { average_page_confidence_score?: number };
+      blocks?: {
+        type?: string;
+        content?: string;
+        confidence_scores?: { average_content_confidence_score?: number };
+      }[];
     }[];
   };
 
@@ -144,7 +160,10 @@ export async function ocr(dataUrl: string): Promise<OcrResult> {
     pages: (payload.pages ?? []).map((page, index) => ({
       index: page.index ?? index,
       markdown: page.markdown ?? "",
+      confidence: page.confidence_scores?.average_page_confidence_score ?? null,
       blocks: (page.blocks ?? []).map((block) => ({
+        type: block.type ?? "text",
+        content: block.content ?? "",
         confidence: block.confidence_scores?.average_content_confidence_score ?? null,
       })),
     })),
