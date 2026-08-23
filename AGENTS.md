@@ -70,6 +70,18 @@ Re-planning mid-walkthrough goes to `POST /api/chat` with `continueFrom`, which 
 in `apps/web/lib/agent/continue.ts`: one small model call over the stored answer and its grounding,
 no understanding, probes or verdict.
 
+## When the widget speaks
+
+Never in text mode. The microphone in the composer is dictation: it types the question and the
+answer comes back as text. Audio only plays during a call, and `ui/call.ts` is the one place that
+decides it (`shouldSpeak`, `shouldListen`); the recorder and the player know nothing about calls
+and are driven from those two answers. Both the call machine and the event-to-status mapping in
+`ui/status.ts` are pure and covered by `packages/widget/test/call.test.ts` and `status.test.ts`.
+
+The status line under the typing dots comes from real `probe` and `verdict` events, but it is
+paced: the three checks run in parallel and land together, so without a dwell the line would jump
+from the first stage to the last.
+
 ## Secrets
 
 No literal secrets anywhere, including tests and fixtures. Every credential is read from the
