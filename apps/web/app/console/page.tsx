@@ -172,28 +172,31 @@ export default async function ConsoleOverviewPage() {
         </div>
       ) : null}
 
-      {/* Only shortcuts to pages that have something on them. */}
-      <div className="shortcut-grid">
-        <Shortcut
-          href="/console/knowledge"
-          title={counts.documents > 0 ? "Add another source" : "Add a source"}
-          text="Upload the handbook, paste a page, or point at a URL. The agent answers from it."
-        />
-        {outcomes.all > 0 ? (
+      {/* Shortcuts only to pages that have something on them. On a new project the checklist is
+          already the way in, so they would only repeat it. */}
+      {hasAnything ? (
+        <div className="shortcut-grid">
           <Shortcut
-            href="/console/conversations"
-            title="Read conversations"
-            text="Every question, how it ended, and the steps the agent showed on the page."
+            href="/console/knowledge"
+            title={counts.documents > 0 ? "Add another source" : "Add a source"}
+            text="Upload the handbook, paste a page, or point at a URL. The agent answers from it."
           />
-        ) : null}
-        {hasActivity ? (
-          <Shortcut
-            href="/console/activity"
-            title="Watch the live trace"
-            text="Checks, verdicts, drafted issues and pull requests, as they happen."
-          />
-        ) : null}
-      </div>
+          {outcomes.all > 0 ? (
+            <Shortcut
+              href="/console/conversations"
+              title="Read conversations"
+              text="Every question, how it ended, and the steps the agent showed on the page."
+            />
+          ) : null}
+          {hasActivity ? (
+            <Shortcut
+              href="/console/activity"
+              title="Watch the live trace"
+              text="Checks, verdicts, drafted issues and pull requests, as they happen."
+            />
+          ) : null}
+        </div>
+      ) : null}
     </>
   );
 }
