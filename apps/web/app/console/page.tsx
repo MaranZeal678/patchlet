@@ -27,6 +27,9 @@ export default async function ConsoleOverviewPage() {
   const snippet = embedSnippet(project.embedKey);
   const steps = onboardingSteps(project, counts, worker);
   const completedAt = await stampOnboarded(project, steps);
+  // A project that has done nothing yet gets onboarding, not a dashboard of zeroes.
+  const hasActivity = outcomes.all > 0 || counts.escalations > 0;
+  const hasAnything = hasActivity || counts.documents > 0;
 
   return (
     <>
@@ -35,31 +38,35 @@ export default async function ConsoleOverviewPage() {
         title="Overview"
         description="The project this console manages, its embed snippet, and what the agent has been doing."
         actions={
-          <Link href="/console/activity" className="secondary-action">
-            Open the live trace
-          </Link>
+          hasActivity ? (
+            <Link href="/console/activity" className="secondary-action">
+              Open the live trace
+            </Link>
+          ) : null
         }
       />
 
-      <div className="stat-grid mb-6">
-        <Stat value={counts.documents} label="Sources" />
-        <Stat value={counts.chunks} label="Chunks" />
-        <Stat value={outcomes.all} label="Conversations" />
-        <Stat value={counts.escalations} label="Escalations" />
-        <div className="stat stat--status">
-          <span className={`stat__dot${worker.online ? "" : " is-off"}`} />
-          <span>
-            <span className="stat__num block text-[1.05rem]">
-              {worker.online ? "Online" : "Offline"}
+      {hasAnything ? (
+        <div className="stat-grid mb-6">
+          <Stat value={counts.documents} label="Sources" />
+          <Stat value={counts.chunks} label="Chunks" />
+          <Stat value={outcomes.all} label="Conversations" />
+          <Stat value={counts.escalations} label="Escalations" />
+          <div className="stat stat--status">
+            <span className={`stat__dot${worker.online ? "" : " is-off"}`} />
+            <span>
+              <span className="stat__num block text-[1.05rem]">
+                {worker.online ? "Online" : "Offline"}
+              </span>
+              <span className="stat__label">
+                {worker.online || !worker.lastSeenAt
+                  ? "Worker"
+                  : `Worker, last seen ${formatDateTime(worker.lastSeenAt)}`}
+              </span>
             </span>
-            <span className="stat__label">
-              {worker.online || !worker.lastSeenAt
-                ? "Worker"
-                : `Worker, last seen ${formatDateTime(worker.lastSeenAt)}`}
-            </span>
-          </span>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="mb-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.85fr)]">
         <section className="panel">
@@ -113,74 +120,73 @@ export default async function ConsoleOverviewPage() {
         <OnboardingChecklist steps={steps} completedAt={completedAt} />
       </div>
 
-      <div className="mb-6 grid items-start gap-6 lg:grid-cols-2">
-        <section className="panel">
-          <div className="panel__head">
-            <h2>Conversations</h2>
-            <Link href="/console/conversations" className="link-button">
-              Read them
-            </Link>
-          </div>
-          {outcomes.all === 0 ? (
-            <p className="field-hint mt-0">
-              Nothing yet. Ask the widget a question on your site and it appears here.
-            </p>
-          ) : (
-            <dl className="grid gap-3">
-              {CONVERSATION_OUTCOMES.map((outcome) => (
-                <Tally
-                  key={outcome}
-                  label={outcomeLabel(outcome)}
-                  value={outcomes[outcome]}
-                  tone={outcomeTone(outcome)}
-                />
-              ))}
-            </dl>
-          )}
-        </section>
+      {hasActivity ? (
+        <div className="mb-6 grid items-start gap-6 lg:grid-cols-2">
+          {outcomes.all > 0 ? (
+            <section className="panel">
+              <div className="panel__head">
+                <h2>Conversations</h2>
+                <Link href="/console/conversations" className="link-button">
+                  Read them
+                </Link>
+              </div>
+              <dl className="grid gap-3">
+                {CONVERSATION_OUTCOMES.map((outcome) => (
+                  <Tally
+                    key={outcome}
+                    label={outcomeLabel(outcome)}
+                    value={outcomes[outcome]}
+                    tone={outcomeTone(outcome)}
+                  />
+                ))}
+              </dl>
+            </section>
+          ) : null}
 
-        <section className="panel">
-          <div className="panel__head">
-            <h2>Escalations</h2>
-            <Link href="/console/activity" className="link-button">
-              Follow one
-            </Link>
-          </div>
-          {statuses.length === 0 ? (
-            <p className="field-hint mt-0">
-              Nothing has been reported to the developers yet.
-            </p>
-          ) : (
-            <dl className="grid gap-3">
-              {statuses.map((entry) => (
-                <Tally
-                  key={entry.status}
-                  label={escalationLabel(entry.status)}
-                  value={entry.count}
-                  tone={escalationTone(entry.status)}
-                />
-              ))}
-            </dl>
-          )}
-        </section>
-      </div>
+          {statuses.length > 0 ? (
+            <section className="panel">
+              <div className="panel__head">
+                <h2>Escalations</h2>
+                <Link href="/console/activity" className="link-button">
+                  Follow one
+                </Link>
+              </div>
+              <dl className="grid gap-3">
+                {statuses.map((entry) => (
+                  <Tally
+                    key={entry.status}
+                    label={escalationLabel(entry.status)}
+                    value={entry.count}
+                    tone={escalationTone(entry.status)}
+                  />
+                ))}
+              </dl>
+            </section>
+          ) : null}
+        </div>
+      ) : null}
 
+      {/* Only shortcuts to pages that have something on them. */}
       <div className="shortcut-grid">
         <Shortcut
           href="/console/knowledge"
-          title="Add a source"
+          title={counts.documents > 0 ? "Add another source" : "Add a source"}
           text="Upload the handbook, paste a page, or point at a URL. The agent answers from it."
         />
-        <Shortcut
-          href="/console/conversations"
-          title="Read conversations"
-          text="Every question, how it ended, and the steps the agent showed on the page."
-        />
-        <Shortcut
-          href="/console/activity"
-          title="Watch the live trace"
-          text="Checks, verdicts, drafted issues and pull requests, as they happen."
-        />
+        {outcomes.all > 0 ? (
+          <Shortcut
+            href="/console/conversations"
+            title="Read conversations"
+            text="Every question, how it ended, and the steps the agent showed on the page."
+          />
+        ) : null}
+        {hasActivity ? (
+          <Shortcut
+            href="/console/activity"
+            title="Watch the live trace"
+            text="Checks, verdicts, drafted issues and pull requests, as they happen."
+          />
+        ) : null}
       </div>
     </>
   );

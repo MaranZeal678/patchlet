@@ -88,19 +88,19 @@ function TurnView({
         </div>
       )}
 
-      {turn.answer && offer?.offered === true && (
+      {turn.answer && offer && (offer.offered === true || offer.reason) && (
         <AbsenceCard
           text={turn.answer.text}
-          request={offer.request}
+          request={offer.offered === true ? offer.request : undefined}
           escalation={turn.escalation}
           reporting={turn.reporting}
-          blocked={turn.reportBlocked}
+          blocked={turn.reportBlocked ?? (offer.offered === true ? undefined : offer.reason)}
           elapsedSeconds={elapsedSeconds}
           onReport={() => onReport(turn)}
         />
       )}
 
-      {turn.answer && offer?.offered !== true && (
+      {turn.answer && offer?.offered !== true && !offer?.reason && (
         <AnswerCard
           text={turn.answer.text}
           steps={turn.answer.steps}

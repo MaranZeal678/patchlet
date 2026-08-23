@@ -155,6 +155,7 @@ export function RepositoryConnect({
             <Identity
               login={githubLogin}
               avatar={githubAvatar}
+              oauthAvailable={oauthAvailable}
               unlinking={busyAction === "unlink"}
               onUnlink={() => void unlink()}
             />
@@ -208,17 +209,19 @@ function ConnectPrompt({ oauthAvailable }: { oauthAvailable: boolean }) {
         Patchlet needs one repository to read for evidence and to open issues and draft pull
         requests in. Link your GitHub account to choose it.
       </p>
-      <div>
-        <a className="primary-action" href="/api/github/connect">
-          <GithubGlyph />
-          Connect GitHub
-        </a>
-      </div>
-      {oauthAvailable ? null : (
-        <p className="field-hint m-0">
-          GitHub linking is not configured on this deployment, so the button will come straight
-          back.
-        </p>
+      {/* No button when it cannot work: it would only bounce back to this page. */}
+      {oauthAvailable ? (
+        <div>
+          <a className="primary-action" href="/api/github/connect">
+            <GithubGlyph />
+            Connect GitHub
+          </a>
+        </div>
+      ) : (
+        <div className="notice">
+          GitHub linking is not configured on this deployment. Set the OAuth app variables and
+          reload to connect an account.
+        </div>
       )}
     </div>
   );
@@ -228,11 +231,13 @@ function ConnectPrompt({ oauthAvailable }: { oauthAvailable: boolean }) {
 function Identity({
   login,
   avatar,
+  oauthAvailable,
   unlinking,
   onUnlink,
 }: {
   login: string | null;
   avatar: string | null;
+  oauthAvailable: boolean;
   unlinking: boolean;
   onUnlink: () => void;
 }) {
@@ -248,11 +253,13 @@ function Identity({
             Bound through the server credential until you connect GitHub
           </span>
         </span>
-        <span className="github-identity__actions">
-          <a className="link-button" href="/api/github/connect">
-            Connect GitHub
-          </a>
-        </span>
+        {oauthAvailable ? (
+          <span className="github-identity__actions">
+            <a className="link-button" href="/api/github/connect">
+              Connect GitHub
+            </a>
+          </span>
+        ) : null}
       </div>
     );
   }

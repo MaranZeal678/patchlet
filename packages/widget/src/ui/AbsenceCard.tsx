@@ -20,7 +20,8 @@ export function AbsenceCard({
   onReport,
 }: {
   text: string;
-  request: FeatureRequest;
+  /** Absent when the agent never offered, so there is no drafted title to name. */
+  request?: FeatureRequest;
   escalation?: EscalationView;
   reporting?: boolean;
   blocked?: ReportBlock;
@@ -30,7 +31,7 @@ export function AbsenceCard({
   return (
     <div class="pl-card">
       <p>{text}</p>
-      {!escalation && !blocked && (
+      {!escalation && !blocked && request && (
         <div class="pl-card__actions">
           <button type="button" class="pl-btn pl-btn--accent" onClick={onReport} disabled={reporting}>
             {reporting ? 'Reporting' : 'Report to developers'}

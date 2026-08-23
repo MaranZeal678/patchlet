@@ -5,6 +5,7 @@
 import { MODELS, routeProbes, validatePlan } from "@patchlet/shared";
 import type {
   ChatEvent,
+  EscalationOffer,
   FeatureRequest,
   PageContext,
   ProbeResult,
@@ -17,6 +18,17 @@ import { emitTrace } from "../trace";
 import { loadVisitorFacts, rememberFromTurn } from "./memory";
 import { probeDocs, probeInterface, probeRepository } from "./probes";
 import { closeConversation } from "./summary";
+
+/**
+ * What the widget is told about reporting.
+ *
+ * A drafted request with no repository to file it against is not an offer: the widget says so
+ * instead of showing a button that would come back with an error.
+ */
+function escalationOffer(request: FeatureRequest | null, repoFullName: string | null): EscalationOffer {
+  if (!request) return { offered: false };
+  return repoFullName ? { offered: true, request } : { offered: false, reason: "no_repository" };
+}
 
 export type TurnInput = {
   projectId: string;
@@ -269,10 +281,16 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
       ...drafted,
       quote: question.includes(drafted.quote.trim()) ? drafted.quote.trim() : question,
     };
+    // Only offer what can actually happen: without a repository there is nothing to file against.
+    const offer = input.repoFullName
+      ? outcome === "absent"
+        ? " I can report this to the developers so they can build it. Would you like me to?"
+        : " I can report it to the developers so they can look. Would you like me to?"
+      : "";
     text =
       outcome === "absent"
-        ? `I am sorry, ${understanding.feature} is not available here today. I checked the documentation, this page, and the code behind it, and found nothing. I can report this to the developers so they can build it. Would you like me to?`
-        : `I could not confirm that ${understanding.feature} exists here. I did not find it in the documentation or on this page. I can report it to the developers so they can look. Would you like me to?`;
+        ? `I am sorry, ${understanding.feature} is not available here today. I checked the documentation, this page, and the code behind it, and found nothing.${offer}`
+        : `I could not confirm that ${understanding.feature} exists here. I did not find it in the documentation or on this page.${offer}`;
   }
 
   const { data: assistantMessage } = await db
@@ -293,7 +311,7 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
     type: "answer",
     text,
     steps,
-    escalation: request ? { offered: true, request } : { offered: false },
+    escalation: escalationOffer(request, input.repoFullName),
   };
 
   // The widget escalates against the assistant message, so hand its id back.
