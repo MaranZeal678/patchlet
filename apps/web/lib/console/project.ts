@@ -1,4 +1,4 @@
-import { appUrl, projectSlug } from "@/lib/env";
+import { appUrl } from "@/lib/env";
 import { serviceClient } from "@/lib/supabase";
 
 /** One account's workspace, as the console pages and routes consume it. */
@@ -48,16 +48,6 @@ export async function loadProjectByOwner(ownerId: string): Promise<ConsoleProjec
     .from("project")
     .select(PROJECT_COLUMNS)
     .eq("owner_id", ownerId)
-    .maybeSingle();
-  return data ? toProject(data as Record<string, unknown>) : null;
-}
-
-/** The seeded demo project. Only the seed and the demo scripts have any business asking for it. */
-export async function loadSeededProject(): Promise<ConsoleProject | null> {
-  const { data } = await serviceClient()
-    .from("project")
-    .select(PROJECT_COLUMNS)
-    .eq("slug", projectSlug())
     .maybeSingle();
   return data ? toProject(data as Record<string, unknown>) : null;
 }
