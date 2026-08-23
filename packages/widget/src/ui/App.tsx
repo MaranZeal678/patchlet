@@ -276,7 +276,13 @@ export function App({ client, shadow, host, position, register }: AppProps) {
       const audio = await recorder.stop();
       if (audio) {
         const text = await client.transcribe(audio);
-        if (text) void ask(text);
+        if (text) {
+          // Show the words back before sending, so a mishearing is visible.
+          setDraft(text);
+          void ask(text);
+        } else {
+          setAnnouncement('I did not catch that. Try again.');
+        }
       }
     } catch {
       setAnnouncement('The microphone is not available.');

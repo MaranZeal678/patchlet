@@ -55,14 +55,14 @@ export class VoiceRecorder {
       analyser.getByteTimeDomainData(samples);
       let peak = 0;
       for (const sample of samples) peak = Math.max(peak, Math.abs(sample - 128));
-      const speaking = peak > 8;
+      const speaking = peak > 6;
       const now = Date.now();
       if (speaking) {
         heardSpeech = true;
         quietSince = 0;
       } else if (heardSpeech) {
         if (quietSince === 0) quietSince = now;
-        else if (now - quietSince > 1400) {
+        else if (now - quietSince > 2600) {
           onSilence();
           return;
         }
