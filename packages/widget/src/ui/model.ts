@@ -2,7 +2,13 @@ import type { EscalationOffer, EscalationView, ProbeName, ProbeResult, ReportBlo
 
 export type ProbeState = { status: 'pending' | 'running' | 'done'; result?: ProbeResult };
 
-export type Answer = { text: string; steps: Step[] | null; escalation: EscalationOffer };
+export type Answer = {
+  text: string;
+  steps: Step[] | null;
+  escalation: EscalationOffer;
+  /** The agent recorded the gap for the developers on its own. */
+  noted?: boolean;
+};
 
 export type Turn = {
   id: string;

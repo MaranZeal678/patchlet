@@ -86,6 +86,7 @@ function TurnView({
           escalation={turn.escalation}
           reporting={turn.reporting}
           blocked={turn.reportBlocked ?? (offer.offered === true ? undefined : offer.reason)}
+          noted={turn.answer.noted}
           elapsedSeconds={elapsedSeconds}
           onReport={() => onReport(turn)}
         />

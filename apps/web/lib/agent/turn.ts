@@ -18,6 +18,7 @@ import { emitTrace } from "../trace";
 import { loadVisitorFacts, rememberFromTurn } from "./memory";
 import { affordanceList, dropRepeats } from "./page";
 import { probeDocs, probeInterface, probeRepository } from "./probes";
+import { noteRequest } from "./requests";
 import { closeConversation } from "./summary";
 
 /**
@@ -364,11 +365,23 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
     .select("id")
     .single();
 
+  // Even when the user never asks for it, a gap the agent found is worth the developers knowing.
+  // It joins the other reports of the same gap and rises with them.
+  const noted = request
+    ? await noteRequest({
+        projectId,
+        request,
+        conversationId,
+        messageId: (assistantMessage?.id as string) ?? null,
+      })
+    : false;
+
   yield {
     type: "answer",
     text,
     steps,
     escalation: escalationOffer(request, input.repoFullName),
+    noted,
   };
 
   // The widget escalates against the assistant message, so hand its id back.

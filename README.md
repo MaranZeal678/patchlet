@@ -9,6 +9,10 @@ different from a support chatbot.
    (documentation, this page, the repository), apologises, and offers to report it. Accepting starts
    a durable workflow that files a GitHub issue, drafts the implementation, opens a draft pull
    request, pauses for a human, and after approval merges so the live site changes.
+3. **Nothing is lost when the user says no.** Every gap the agent finds is grouped with every other
+   report of the same gap and filed as an issue anyway, at the bottom of the pile. The more people
+   run into it, the higher it rises, and once it has real weight behind it the change gets drafted
+   without anyone asking twice.
 
 The demo host app is **Not Mistral**, a clone of an AI studio console, deployed separately and
 embedding the widget with a single script tag.

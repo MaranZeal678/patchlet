@@ -63,12 +63,20 @@ export type ChatEvent =
   | { type: 'probe'; probe: ProbeName; status: 'running' }
   | { type: 'probe'; probe: ProbeName; status: 'done'; result: ProbeResult }
   | { type: 'verdict'; verdict: Verdict }
-  | { type: 'answer'; text: string; steps: Step[] | null; escalation: EscalationOffer }
+  | {
+      type: 'answer';
+      text: string;
+      steps: Step[] | null;
+      escalation: EscalationOffer;
+      /** The gap was recorded for the developers without the user having to ask. */
+      noted?: boolean;
+    }
   | { type: 'error'; message: string };
 
 export type EscalationStatus =
   | 'queued'
   | 'filing'
+  | 'filed'
   | 'inspecting'
   | 'drafting'
   | 'pr_open'
@@ -78,6 +86,7 @@ export type EscalationStatus =
   | 'merging'
   | 'deploying'
   | 'shipped'
+  | 'updated'
   | 'failed';
 
 /** Response shape of GET /api/escalations/:id. */

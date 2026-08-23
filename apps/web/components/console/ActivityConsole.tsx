@@ -1,51 +1,64 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import type { RequestGroup } from "@patchlet/shared";
 import { outcomeLabel, outcomeTone } from "@/lib/agent/outcome";
-import { escalationLabel, escalationTone, formatDateTime } from "@/lib/console/format";
+import {
+  formatDateTime,
+  reportCountLabel,
+  requestStatusLabel,
+  requestStatusTone,
+} from "@/lib/console/format";
 import { TraceStream } from "./TraceStream";
 
 import type { ConversationSummary } from "@/lib/console/conversations";
-import type { ConsoleEscalation } from "@/lib/console/records";
 
-type Escalation = ConsoleEscalation;
 type Conversation = ConversationSummary;
 
-type Selection =
-  | { kind: "escalation"; id: string; conversationId: string | null }
-  | { kind: "conversation"; id: string };
+type Selection = { kind: "request"; id: string } | { kind: "conversation"; id: string };
 
-type Filter = "all" | "escalations" | "conversations";
+type Filter = "all" | "requests" | "conversations";
 
-const FILTERS: Filter[] = ["all", "escalations", "conversations"];
+const FILTERS: Filter[] = ["all", "requests", "conversations"];
+
+const FILTER_LABEL: Record<Filter, string> = {
+  all: "All",
+  requests: "Requests",
+  conversations: "Conversations",
+};
 
 export function ActivityConsole({
-  initialEscalations,
+  initialRequests,
   initialConversations,
 }: {
-  initialEscalations: Escalation[];
+  initialRequests: RequestGroup[];
   initialConversations: Conversation[];
 }) {
-  const [escalations, setEscalations] = useState<Escalation[]>(initialEscalations);
+  // A conversation links to the request it joined, so arrive on that one when asked.
+  const requested = useSearchParams().get("request");
+  const [requests, setRequests] = useState<RequestGroup[]>(initialRequests);
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
   const [filter, setFilter] = useState<Filter>("all");
-  const [chosen, setChosen] = useState<Selection | null>(null);
+  const [chosen, setChosen] = useState<Selection | null>(
+    requested ? { kind: "request", id: requested } : null,
+  );
   const [eventCount, setEventCount] = useState(0);
   const [live, setLive] = useState(false);
   const [error, setError] = useState("");
 
-  /** Re-read the two lists after a decision, so the status chip and the links catch up. */
+  /** Re-read the two lists after a decision, so the counts and the links catch up. */
   const refresh = useCallback(async () => {
     try {
-      const [escalationResponse, conversationResponse] = await Promise.all([
-        fetch("/api/escalations"),
+      const [requestResponse, conversationResponse] = await Promise.all([
+        fetch("/api/requests"),
         fetch("/api/conversations?limit=40"),
       ]);
-      const escalationBody = (await escalationResponse.json()) as { escalations?: Escalation[] };
+      const requestBody = (await requestResponse.json()) as { requests?: RequestGroup[] };
       const conversationBody = (await conversationResponse.json()) as {
         conversations?: Conversation[];
       };
-      setEscalations(escalationBody.escalations ?? []);
+      setRequests(requestBody.requests ?? []);
       setConversations(conversationBody.conversations ?? []);
     } catch {
       setError("Could not refresh the activity list.");
@@ -56,45 +69,41 @@ export function ActivityConsole({
     void refresh();
   }, [refresh]);
 
-  // Nothing chosen yet means the newest escalation, or failing that the newest conversation.
+  // Nothing chosen yet means the heaviest request, or failing that the newest conversation.
   const selection = useMemo<Selection | null>(() => {
     if (chosen) return chosen;
-    const escalation = escalations[0];
-    if (escalation) {
-      return { kind: "escalation", id: escalation.id, conversationId: escalation.conversationId };
-    }
+    const request = requests[0];
+    if (request) return { kind: "request", id: request.id };
     const conversation = conversations[0];
     return conversation ? { kind: "conversation", id: conversation.id } : null;
-  }, [chosen, escalations, conversations]);
+  }, [chosen, requests, conversations]);
 
-  const query = useMemo(() => {
-    if (!selection) return null;
-    const params = new URLSearchParams();
-    if (selection.kind === "escalation") {
-      params.set("escalationId", selection.id);
-      if (selection.conversationId) params.set("conversationId", selection.conversationId);
-    } else {
-      params.set("conversationId", selection.id);
-    }
-    return params.toString();
-  }, [selection]);
-
-  const selectedEscalation =
-    selection?.kind === "escalation"
-      ? (escalations.find((row) => row.id === selection.id) ?? null)
-      : null;
+  const selectedRequest =
+    selection?.kind === "request" ? (requests.find((row) => row.id === selection.id) ?? null) : null;
   const selectedConversation =
     selection?.kind === "conversation"
       ? (conversations.find((row) => row.id === selection.id) ?? null)
       : null;
 
-  const showEscalations = filter !== "conversations";
-  const showConversations = filter !== "escalations";
+  const query = useMemo(() => {
+    if (!selection) return null;
+    const params = new URLSearchParams();
+    if (selection.kind === "request") {
+      if (!selectedRequest?.escalationId) return null;
+      params.set("escalationId", selectedRequest.escalationId);
+    } else {
+      params.set("conversationId", selection.id);
+    }
+    return params.toString();
+  }, [selection, selectedRequest]);
+
+  const showRequests = filter !== "conversations";
+  const showConversations = filter !== "requests";
   const nothingToShow =
-    (showEscalations ? escalations.length : 0) + (showConversations ? conversations.length : 0) === 0;
+    (showRequests ? requests.length : 0) + (showConversations ? conversations.length : 0) === 0;
 
   // With nothing recorded the filters count nothing three ways. One empty state says more.
-  if (escalations.length === 0 && conversations.length === 0) {
+  if (requests.length === 0 && conversations.length === 0) {
     return (
       <div className="empty-state">
         <p className="empty-state__title">Nothing has happened yet</p>
@@ -117,12 +126,12 @@ export function ActivityConsole({
             aria-pressed={filter === value}
             onClick={() => setFilter(value)}
           >
-            {value === "all" ? "All" : value === "escalations" ? "Escalations" : "Conversations"}
+            {FILTER_LABEL[value]}
             <span className="filter-chip__count">
               {value === "all"
-                ? escalations.length + conversations.length
-                : value === "escalations"
-                  ? escalations.length
+                ? requests.length + conversations.length
+                : value === "requests"
+                  ? requests.length
                   : conversations.length}
             </span>
           </button>
@@ -144,49 +153,14 @@ export function ActivityConsole({
             </div>
           ) : (
             <ul className="record-list">
-              {showEscalations &&
-                escalations.map((escalation) => (
-                  <li key={escalation.id}>
-                    <button
-                      type="button"
-                      className={`record-card${
-                        selection?.kind === "escalation" && selection.id === escalation.id
-                          ? " is-selected"
-                          : ""
-                      }`}
-                      onClick={() =>
-                        setChosen({
-                          kind: "escalation",
-                          id: escalation.id,
-                          conversationId: escalation.conversationId,
-                        })
-                      }
-                    >
-                      <div className="record-card__top">
-                        <span className={`outcome-badge ${escalationTone(escalation.status)}`}>
-                          {escalationLabel(escalation.status)}
-                        </span>
-                        <span className="record-card__time">
-                          {formatDateTime(escalation.createdAt)}
-                        </span>
-                      </div>
-                      <p className="record-card__summary">
-                        {escalation.request?.title ?? "Feature request"}
-                      </p>
-                      {escalation.request?.quote ? (
-                        <p className="record-card__line is-clipped" title={escalation.request.quote}>
-                          <span className="record-card__label">Asked</span>
-                          {escalation.request.quote}
-                        </p>
-                      ) : null}
-                      <div className="record-card__meta">
-                        {escalation.issueNumber !== null ? (
-                          <span>issue #{escalation.issueNumber}</span>
-                        ) : null}
-                        {escalation.prNumber !== null ? <span>pr #{escalation.prNumber}</span> : null}
-                        {escalation.deploymentUrl ? <span>deployed</span> : null}
-                      </div>
-                    </button>
+              {showRequests &&
+                requests.map((request) => (
+                  <li key={request.id}>
+                    <RequestCard
+                      request={request}
+                      selected={selection?.kind === "request" && selection.id === request.id}
+                      onSelect={() => setChosen({ kind: "request", id: request.id })}
+                    />
                   </li>
                 ))}
 
@@ -236,15 +210,17 @@ export function ActivityConsole({
           <div className="trace-panel__head">
             <div className="min-w-0">
               <h2 className="trace-panel__title">
-                {selectedEscalation?.request?.title ??
+                {selectedRequest?.title ??
                   (selectedConversation
                     ? (selectedConversation.question ?? "Conversation")
                     : "Live trace")}
               </h2>
               <p className="trace-panel__meta">
-                {selection
-                  ? `${eventCount} event${eventCount === 1 ? "" : "s"}`
-                  : "Choose an escalation or a conversation."}
+                {selectedRequest
+                  ? reportCountLabel(selectedRequest.reportCount, selectedRequest.userReportCount)
+                  : selection
+                    ? `${eventCount} event${eventCount === 1 ? "" : "s"}`
+                    : "Choose a request or a conversation."}
               </p>
             </div>
             <span className={`trace-live${live ? " is-live" : ""}`}>
@@ -253,20 +229,24 @@ export function ActivityConsole({
             </span>
           </div>
 
-          {selectedEscalation ? <ArtifactLinks escalation={selectedEscalation} /> : null}
+          {selectedRequest ? <ArtifactLinks request={selectedRequest} /> : null}
 
           {query && selection ? (
             <TraceStream
               key={query}
               query={query}
-              escalationId={selectedEscalation?.id ?? null}
+              escalationId={selectedRequest?.escalationId ?? null}
               onDecision={handleDecision}
               onCount={setEventCount}
               onLive={setLive}
             />
           ) : (
             <div className="trace-body">
-              <p className="trace-row__text">Nothing selected.</p>
+              <p className="trace-row__text">
+                {selectedRequest
+                  ? "Nothing has run for this request yet. It is on the list, waiting for enough weight behind it."
+                  : "Nothing selected."}
+              </p>
             </div>
           )}
         </section>
@@ -275,16 +255,49 @@ export function ActivityConsole({
   );
 }
 
-/** The escalation's own artefacts, always reachable without hunting through the trace. */
-function ArtifactLinks({ escalation }: { escalation: Escalation }) {
+/** One gap in the product: how it is doing, and how many people it has caught. */
+function RequestCard({
+  request,
+  selected,
+  onSelect,
+}: {
+  request: RequestGroup;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`record-card${selected ? " is-selected" : ""}`}
+      onClick={onSelect}
+    >
+      <div className="record-card__top">
+        <span className={`outcome-badge ${requestStatusTone(request.status)}`}>
+          {requestStatusLabel(request.status)}
+        </span>
+        <span className="record-card__time">{formatDateTime(request.lastSeen)}</span>
+      </div>
+      <p className="record-card__summary">{request.title}</p>
+      <p className="record-card__line">
+        <span className="record-card__label">Priority</span>
+        {request.priority}
+      </p>
+      <div className="record-card__meta">
+        <span>{reportCountLabel(request.reportCount, request.userReportCount)}</span>
+        {request.issueNumber !== null ? <span>issue #{request.issueNumber}</span> : null}
+        {request.prUrl ? <span>pull request</span> : null}
+      </div>
+    </button>
+  );
+}
+
+/** The request's own artefacts, always reachable without hunting through the trace. */
+function ArtifactLinks({ request }: { request: RequestGroup }) {
   const links = [
-    escalation.issueUrl
-      ? { href: escalation.issueUrl, label: `Issue #${escalation.issueNumber ?? ""}`.trim() }
+    request.issueUrl
+      ? { href: request.issueUrl, label: `Issue #${request.issueNumber ?? ""}`.trim() }
       : null,
-    escalation.prUrl
-      ? { href: escalation.prUrl, label: `Pull request #${escalation.prNumber ?? ""}`.trim() }
-      : null,
-    escalation.deploymentUrl ? { href: escalation.deploymentUrl, label: "Deployment" } : null,
+    request.prUrl ? { href: request.prUrl, label: "Pull request" } : null,
   ].filter((link): link is { href: string; label: string } => link !== null);
 
   if (links.length === 0) return null;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { formatRelativeTime } from "@/lib/console/format";
+import { formatRelativeTime, reportCountLabel } from "@/lib/console/format";
 import type { Notification } from "@/lib/console/notifications";
 
 /** When the reader last opened the bell. Per browser, because "unread" is a personal thing. */
@@ -114,6 +114,7 @@ export function NotificationBell() {
                     <span className="bell__item-meta">
                       {item.kind === "issue" ? "Issue" : "Pull request"}
                       {item.number === null ? "" : ` #${item.number}`}
+                      {` · ${reportCountLabel(item.reportCount, item.userReportCount).toLowerCase()}`}
                       {item.at ? ` · ${formatRelativeTime(item.at)}` : ""}
                     </span>
                   </a>

@@ -47,6 +47,43 @@ export type FeatureRequest = {
   rationale: string;
 };
 
+/** How much weight a request group carries. Derived from its two counts, never set by hand. */
+export type RequestPriority = "low" | "medium" | "high";
+
+/** Where a request group has got to. `observed` means noticed but not yet on GitHub. */
+export type RequestGroupStatus =
+  | "observed"
+  | "filed"
+  | "drafting"
+  | "pr_open"
+  | "awaiting_approval"
+  | "shipped"
+  | "rejected";
+
+/**
+ * One gap in the product, however many conversations reached it.
+ *
+ * The counts are what turn a quiet observation into work: `reportCount` is every conversation
+ * where the agent found the gap, `userReportCount` the subset where the user asked for it.
+ */
+export type RequestGroup = {
+  id: string;
+  title: string;
+  description: string;
+  area: string;
+  reportCount: number;
+  userReportCount: number;
+  priority: RequestPriority;
+  status: RequestGroupStatus;
+  issueUrl: string | null;
+  issueNumber: number | null;
+  prUrl: string | null;
+  /** The run currently carrying this group forward, whose trace the console streams. */
+  escalationId: string | null;
+  firstSeen: string;
+  lastSeen: string;
+};
+
 /** Body of `POST /api/chat`. */
 export type ChatRequest = {
   key: string;
@@ -94,12 +131,19 @@ export type ChatEvent =
       text: string;
       steps: Step[] | null;
       escalation: EscalationOffer;
+      /** The gap was recorded for the developers without the user having to ask. */
+      noted?: boolean;
     }
   | { type: "error"; message: string };
 
+/**
+ * One run of the worker. `updated` is the terminal state of a run that only carried a new count
+ * and quote to an issue and pull request that already exist.
+ */
 export type EscalationStatus =
   | "queued"
   | "filing"
+  | "filed"
   | "inspecting"
   | "drafting"
   | "pr_open"
@@ -109,6 +153,7 @@ export type EscalationStatus =
   | "merging"
   | "deploying"
   | "shipped"
+  | "updated"
   | "failed";
 
 export type TraceEvent = {

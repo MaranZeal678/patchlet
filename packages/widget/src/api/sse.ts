@@ -93,6 +93,7 @@ export function toChatEvent(payload: string): ChatEvent | null {
         text: parsed.text,
         steps: coerceSteps(parsed.steps),
         escalation: toEscalationOffer(parsed.escalation),
+        noted: parsed.noted === true,
       };
 
     case 'error':

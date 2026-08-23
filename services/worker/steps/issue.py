@@ -8,7 +8,12 @@ from models import FeatureRequestInput
 from steps import llm
 
 FOOTER = "Filed by Patchlet after the documentation, page and repository checks found no such feature."
+AUTO_FOOTER = (
+    "Detected by Patchlet in support conversations. Nobody asked for it to be filed: the "
+    "documentation, page and repository checks found no such feature, so it was recorded here."
+)
 LABEL = "patchlet"
+AUTO_LABEL = "auto-detected"
 
 PRIORITY_MODEL = "mistral-large-latest"
 PRIORITIES = ("low", "medium", "high")
@@ -31,8 +36,9 @@ Given one request, choose its priority.
 - low: a nice improvement nobody is blocked on.
 Be conservative: high is rare. Answer with JSON only."""
 
-# The line the duplicate path increments, so a repeatedly requested feature shows its weight.
-REQUEST_COUNT_RE = re.compile(r"Requested (\d+) times?", re.IGNORECASE)
+# The two lines that carry a request's weight, so a repeatedly requested feature shows it at a glance.
+REQUEST_COUNT_RE = re.compile(r"Requested (\d+) times?(?:, (\d+) by users?)?", re.IGNORECASE)
+PRIORITY_LINE_RE = re.compile(r"^Priority: (low|medium|high)$", re.IGNORECASE | re.MULTILINE)
 
 
 def choose_priority(req: FeatureRequestInput) -> tuple[str, str]:
@@ -54,10 +60,35 @@ def choose_priority(req: FeatureRequestInput) -> tuple[str, str]:
     return DEFAULT_PRIORITY, "the model did not return a priority, so this fell back to medium"
 
 
-def labels_for(priority: str) -> list[str]:
+def labels_for(priority: str, auto_detected: bool = False) -> list[str]:
     """Every Patchlet issue carries the product label and its priority."""
     safe = priority if priority in PRIORITIES else DEFAULT_PRIORITY
-    return [LABEL, f"priority:{safe}"]
+    labels = [LABEL, f"priority:{safe}"]
+    if auto_detected:
+        labels.append(AUTO_LABEL)
+    return labels
+
+
+def count_line(report_count: int, user_report_count: int) -> str:
+    """How much weight this request carries, in one line a maintainer can scan."""
+    times = "time" if report_count == 1 else "times"
+    users = "user" if user_report_count == 1 else "users"
+    return f"Requested {report_count} {times}, {user_report_count} by {users}"
+
+
+def set_request_counts(body: str, report_count: int, user_report_count: int) -> str:
+    """Rewrite the count line to the group's own numbers, which are the authority."""
+    line = count_line(report_count, user_report_count)
+    if REQUEST_COUNT_RE.search(body or ""):
+        return REQUEST_COUNT_RE.sub(line, body, count=1)
+    separator = "" if not body or body.endswith("\n") else "\n"
+    return f"{body}{separator}\n{line}\n"
+
+
+def set_priority(body: str, priority: str) -> str:
+    """Keep the priority line honest: a request that rose must not still read as low."""
+    safe = priority if priority in PRIORITIES else DEFAULT_PRIORITY
+    return PRIORITY_LINE_RE.sub(f"Priority: {safe}", body or "", count=1)
 
 
 def bump_request_count(body: str) -> tuple[str, int]:
@@ -84,6 +115,7 @@ def build_issue_body(
     acceptance_criteria: list[str] | None = None,
     priority: str = DEFAULT_PRIORITY,
 ) -> str:
+    """The issue as the developers read it: what was asked, why, where, and how often."""
     criteria = acceptance_criteria or default_acceptance_criteria(req)
     lines = ["## What the user asked", ""]
     if req.quote:
@@ -96,8 +128,19 @@ def build_issue_body(
     lines += [f"- [ ] {item}" for item in criteria]
     if req.site_url:
         lines += ["", f"Site: {req.site_url}"]
-    lines += ["", f"Priority: {priority}", "", "Requested 1 time"]
-    lines += ["", "---", FOOTER]
+    lines += ["", f"Priority: {priority}", "", count_line(req.report_count, req.user_report_count)]
+    lines += ["", "---", AUTO_FOOTER if req.auto_detected() else FOOTER]
+    return "\n".join(lines) + "\n"
+
+
+def build_group_comment(req: FeatureRequestInput) -> str:
+    """Left on the issue, and on the pull request, every time the same gap is reported again."""
+    who = "A user asked for this again." if req.user_report_count else "The agent saw this again."
+    lines = [f"{who} {count_line(req.report_count, req.user_report_count)}."]
+    if req.quote:
+        lines += ["", f"> {req.quote.strip()}"]
+    lines += ["", f"Priority is now {req.priority or DEFAULT_PRIORITY}.", "", "---"]
+    lines.append(AUTO_FOOTER if req.auto_detected() else FOOTER)
     return "\n".join(lines) + "\n"
 
 

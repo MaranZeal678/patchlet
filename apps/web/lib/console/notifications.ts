@@ -1,9 +1,9 @@
 /**
  * What the worker has opened on GitHub, for the bell in the console bar.
  *
- * An escalation can produce two things a person would want to click: the issue it filed and the
- * pull request it drafted. Both come off the same row, so they are flattened here into one list
- * ordered the way a person reads a feed.
+ * The unit is the request, not the conversation. Ten people asking for the same thing is one
+ * issue and one pull request, so it is one line in the bell with the weight behind it, rather
+ * than ten identical lines that bury everything else.
  */
 import { serviceClient } from "@/lib/supabase";
 
@@ -12,69 +12,81 @@ export type NotificationKind = "issue" | "pull_request";
 export type Notification = {
   /** Stable across reloads, so "seen" can be remembered without a server round trip. */
   id: string;
-  escalationId: string;
+  groupId: string;
   kind: NotificationKind;
   number: number | null;
   url: string;
   title: string;
   status: string;
+  /** How many conversations are behind this, and how many of them asked outright. */
+  reportCount: number;
+  userReportCount: number;
   at: string;
 };
 
 export const NOTIFICATION_LIMIT = 10;
 
-type EscalationRow = {
+type GroupRow = {
   id: unknown;
+  title: unknown;
   status: unknown;
-  request: unknown;
+  report_count: unknown;
+  user_report_count: unknown;
   issue_url: unknown;
   issue_number: unknown;
   pr_url: unknown;
-  pr_number: unknown;
-  created_at: unknown;
-  updated_at: unknown;
+  first_seen: unknown;
+  last_seen: unknown;
 };
 
-function requestTitle(request: unknown): string {
-  const title = (request as { title?: unknown } | null)?.title;
+function groupTitle(title: unknown): string {
   return typeof title === "string" && title.trim() !== "" ? title.trim() : "Feature request";
 }
 
-/** The pull request is always the later of the two, so it reads first inside one escalation. */
+/** The number GitHub gave the pull request, read back off its own URL. */
+function pullNumber(url: string): number | null {
+  const match = /\/pull\/(\d+)/.exec(url);
+  return match ? Number(match[1]) : null;
+}
+
+/** The pull request is always the later of the two, so it reads first inside one request. */
 const KIND_ORDER: Record<NotificationKind, number> = { pull_request: 0, issue: 1 };
 
-/** Flattens escalation rows into the newest things the worker opened. */
-export function toNotifications(rows: EscalationRow[]): Notification[] {
+/** Flattens request groups into the newest things the worker opened for them. */
+export function toNotifications(rows: GroupRow[]): Notification[] {
   const found: Notification[] = [];
 
   for (const row of rows) {
-    const escalationId = String(row.id);
-    const title = requestTitle(row.request);
-    const status = String(row.status ?? "");
-    const at = String(row.updated_at ?? row.created_at ?? "");
+    const groupId = String(row.id);
+    const at = String(row.last_seen ?? row.first_seen ?? "");
+    const common = {
+      groupId,
+      title: groupTitle(row.title),
+      status: String(row.status ?? ""),
+      reportCount: Number(row.report_count ?? 0),
+      userReportCount: Number(row.user_report_count ?? 0),
+      at,
+    };
 
     if (typeof row.issue_url === "string" && row.issue_url !== "") {
       found.push({
-        id: `${escalationId}:issue`,
-        escalationId,
+        ...common,
+        id: `${groupId}:issue`,
         kind: "issue",
-        number: row.issue_number === null || row.issue_number === undefined ? null : Number(row.issue_number),
+        number:
+          row.issue_number === null || row.issue_number === undefined
+            ? null
+            : Number(row.issue_number),
         url: row.issue_url,
-        title,
-        status,
-        at,
       });
     }
     if (typeof row.pr_url === "string" && row.pr_url !== "") {
       found.push({
-        id: `${escalationId}:pull_request`,
-        escalationId,
+        ...common,
+        id: `${groupId}:pull_request`,
         kind: "pull_request",
-        number: row.pr_number === null || row.pr_number === undefined ? null : Number(row.pr_number),
+        number: pullNumber(row.pr_url),
         url: row.pr_url,
-        title,
-        status,
-        at,
       });
     }
   }
@@ -86,13 +98,15 @@ export function toNotifications(rows: EscalationRow[]): Notification[] {
 
 export async function loadNotifications(projectId: string): Promise<Notification[]> {
   const { data, error } = await serviceClient()
-    .from("escalation")
-    .select("id, status, request, issue_url, issue_number, pr_url, pr_number, created_at, updated_at")
+    .from("feature_request_group")
+    .select(
+      "id, title, status, report_count, user_report_count, issue_url, issue_number, pr_url, first_seen, last_seen",
+    )
     .eq("project_id", projectId)
     .or("issue_url.not.is.null,pr_url.not.is.null")
-    .order("updated_at", { ascending: false })
+    .order("last_seen", { ascending: false })
     .limit(NOTIFICATION_LIMIT);
   if (error) throw new Error(error.message);
 
-  return toNotifications((data ?? []) as EscalationRow[]);
+  return toNotifications((data ?? []) as GroupRow[]);
 }

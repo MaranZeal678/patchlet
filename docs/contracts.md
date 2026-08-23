@@ -97,7 +97,33 @@ create table escalation (
   approval jsonb,                          -- {approved, note, decidedAt}
   error text,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  -- Migration 0012: one escalation is one run of the worker against a request group.
+  group_id uuid references feature_request_group on delete set null,
+  mode text not null default 'full'        -- 'full' | 'file_only' | 'update'
+);
+
+-- One gap in the product, however many conversations reached it (migration 0012). Every drafted
+-- request is embedded and matched against these before anything is filed, so the same gap is one
+-- issue and at most one pull request, carrying the weight of everyone who ran into it.
+create table feature_request_group (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references project on delete cascade,
+  title text not null,
+  description text not null default '',
+  area text not null default '',
+  embedding vector(1024),                  -- mistral-embed over "title + description"
+  report_count int not null default 1,     -- conversations where the agent found this gap
+  user_report_count int not null default 0,-- the subset where the user asked for it outright
+  priority text not null default 'low',    -- low | medium | high, recomputed on every join
+  status text not null default 'observed', -- observed | filed | drafting | pr_open
+                                           -- | awaiting_approval | shipped | rejected
+  issue_url text,
+  issue_number int,
+  pr_url text,
+  escalation_id uuid references escalation on delete set null,  -- the run carrying it now
+  first_seen timestamptz not null default now(),
+  last_seen timestamptz not null default now()
 );
 
 create table trace_event (
@@ -147,6 +173,24 @@ language sql stable as $$
   where c.project_id = filter_project
   order by c.embedding <=> query_embedding
   limit least(greatest(match_count, 1), 50);
+$$;
+
+create or replace function match_request_groups(
+  query_embedding vector(1024), match_count int, filter_project uuid
+)
+returns table (
+  id uuid, title text, description text, area text,
+  report_count int, user_report_count int, priority text, status text,
+  issue_url text, issue_number int, pr_url text, escalation_id uuid, similarity float
+)
+language sql stable as $$
+  select g.id, g.title, g.description, g.area, g.report_count, g.user_report_count,
+         g.priority, g.status, g.issue_url, g.issue_number, g.pr_url, g.escalation_id,
+         1 - (g.embedding <=> query_embedding) as similarity
+  from feature_request_group g
+  where g.project_id = filter_project and g.embedding is not null
+  order by g.embedding <=> query_embedding
+  limit least(greatest(match_count, 1), 20);
 $$;
 ```
 
@@ -204,6 +248,27 @@ export type FeatureRequest = {
   rationale: string;
 };
 
+// One gap in the product, and everyone who ran into it. See "Grouping and automatic reporting".
+export type RequestPriority = "low" | "medium" | "high";
+export type RequestGroupStatus =
+  | "observed" | "filed" | "drafting" | "pr_open" | "awaiting_approval" | "shipped" | "rejected";
+export type RequestGroup = {
+  id: string;
+  title: string;
+  description: string;
+  area: string;
+  reportCount: number;
+  userReportCount: number;
+  priority: RequestPriority;
+  status: RequestGroupStatus;
+  issueUrl: string | null;
+  issueNumber: number | null;
+  prUrl: string | null;
+  escalationId: string | null;   // the run currently carrying this group forward
+  firstSeen: string;
+  lastSeen: string;
+};
+
 // /api/chat SSE events, in order of emission
 export type ChatEvent =
   | { type: "conversation"; conversationId: string; messageId: string }
@@ -216,12 +281,15 @@ export type ChatEvent =
       text: string;
       steps: Step[] | null;
       escalation: EscalationOffer;   // { offered: true, request } | { offered: false, reason? }
+      noted?: boolean;               // the gap was recorded for the developers without being asked
     }
   | { type: "error"; message: string };
 
+// One run of the worker. `filed` ends an issue-only run; `updated` ends a run that only carried a
+// new count and quote to an issue and pull request that already exist.
 export type EscalationStatus =
-  | "queued" | "filing" | "inspecting" | "drafting" | "pr_open" | "awaiting_approval"
-  | "approved" | "rejected" | "merging" | "deploying" | "shipped" | "failed";
+  | "queued" | "filing" | "filed" | "inspecting" | "drafting" | "pr_open" | "awaiting_approval"
+  | "approved" | "rejected" | "merging" | "deploying" | "shipped" | "updated" | "failed";
 
 export type TraceEvent = {
   id: number;
@@ -260,7 +328,7 @@ one account can never read another's sources, conversations, escalations or trac
 | Route | Body / query | Returns |
 |---|---|---|
 | `POST /api/chat` | `{key, conversationId?, visitorId?, question, page: PageContext, continueFrom?}` | SSE of `ChatEvent`; each `data:` line is one JSON event, `event:` is its type |
-| `POST /api/escalate` | `{key, conversationId, messageId, visitorId?}` | `{escalationId, status}`, or 409 `{error, reason: "no_repository"}` when the project has no repository bound |
+| `POST /api/escalate` | `{key, conversationId, messageId, visitorId?}` | `{escalationId, groupId, status}`, or 409 `{error, reason: "no_repository"}` when the project has no repository bound |
 | `GET /api/escalations/:id` | `?key=` required, must be the escalation's project | `{id, status, issueUrl, prUrl, deploymentUrl, request, approval, createdAt}` |
 | `POST /api/transcribe` | multipart `key`, `file` (audio/webm or mp3) | `{text}` |
 | `POST /api/speak` | `{key, text}` | `audio/mpeg` bytes, streamed as the TTS deltas arrive |
@@ -272,6 +340,7 @@ one account can never read another's sources, conversations, escalations or trac
 | `GET /api/conversations` | `?limit=`, `?outcome=` (`solved`, `missing_feature`, `unresolved`) | `{conversations: ConversationSummary[], counts}`, newest first |
 | `GET /api/conversations/:id` | - | `{conversation}`: every message in order with its steps, probes, verdict and feature request, the escalation, and `memory: string[]`, the facts the agent keeps about that visitor |
 | `GET /api/escalations` | - | `{escalations: Escalation[]}`, newest first |
+| `GET /api/requests` | - | `{requests: RequestGroup[]}`, heaviest first: priority, then last reported |
 | `POST /api/escalations/:id/approve` | `{approved: boolean, note?: string}` | `{ok: true, status}` |
 | `GET /api/trace/stream` | `?since=&conversationId=&escalationId=` | SSE; `id:` is the `trace_event.id`, `event: trace`, `data: TraceEvent` |
 | `GET /api/trace` | same filters, `?since=&limit=` | `{events: TraceEvent[]}` backfill |
@@ -357,11 +426,39 @@ The console renders these specially and falls back to a key/value list for anyth
 The console links back to the customer's site with `?patchlet_ask=<question>`; the widget reads that
 parameter on load, opens, and asks the question once.
 
-`POST /api/escalate` inserts the `escalation` row, writes a trace event recording that the user
-accepted, then starts the engine. Under `mistral` it executes the workflow with input
-`{escalation_id, project_id, repo_full_name, default_branch, title, description, area, quote,
-rationale, conversation_excerpt, site_url}` and stores the `execution_id`. Under `local` it does
-nothing more; the worker's local runner polls for rows with `status = 'queued'` and `engine = 'local'`.
+### Grouping and automatic reporting
+
+Nothing is filed for one conversation. Every drafted `FeatureRequest`, whether the user asked for it
+to be reported or not, goes through `apps/web/lib/agent/requests.ts` first:
+
+1. Embed `"title + description"` with `MODELS.embed` and call `match_request_groups`. A nearest
+   group at cosine `>= 0.86` (`REQUEST_MATCH_THRESHOLD`) is the same gap, so the request joins it;
+   anything else starts a new group with `status = 'observed'` and `priority = 'low'`.
+2. A join from the agent raises `report_count`; a join from the user raises `user_report_count`
+   only, because the agent already counted that conversation the moment it drafted the request.
+   `priorityFor` then recomputes the group: `high` at two user reports or five detections, `medium`
+   at one user report or three detections, `low` otherwise.
+3. `actionFor` decides what the worker does about it, and `apps/web/lib/agent/runner.ts` inserts one
+   `escalation` row for that run and starts it:
+
+| Group | Run `mode` | What happens |
+|---|---|---|
+| new | `file_only` | files the issue, labels `patchlet`, `priority:low`, `auto-detected`, and stops. No pull request is drafted for something nobody has reported. |
+| reached `medium` or `high`, nothing drafted yet | `full` | the same workflow the user-reported path has always run: the issue is updated with the new labels, count and quote, then the change is drafted and a draft pull request is opened. |
+| already drafting, or already has a pull request | `update` | the count line, the priority line and the labels are brought up to date and the new quote is added as a comment on the issue and on the pull request. Never a second pull request. |
+
+A project with no repository bound still accumulates the group and its counts; there is simply
+nowhere to file it, so no run starts.
+
+`POST /api/escalate` resolves the message's request, joins its group as a user report, writes a
+trace event recording that the user accepted, and starts whatever run `actionFor` chose. It returns
+the run that owns the group when there is one, so a second reporter follows the same issue and pull
+request rather than a run of their own. Under `mistral` the run is a workflow execution with input
+`{escalation_id, trace_escalation_id, project_id, repo_full_name, default_branch, site_url,
+group_id, report_count, user_report_count, priority, issue_number, pr_number, file_only,
+update_only, title, description, area, quote, rationale}` and its `execution_id` is stored. Under
+`local` nothing more happens; the worker's local runner polls for rows with `status = 'queued'` and
+`engine = 'local'` and reads the group off `escalation.group_id`.
 
 ## 5. Models
 
