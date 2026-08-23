@@ -6,9 +6,13 @@ or, as a fallback, as a plain polling process with the same steps.
 
 For one escalation it:
 
-1. **Files the issue.** Dedupes against open issues by title (comments instead of filing twice),
-   otherwise asks `mistral-large-latest` to call the GitHub MCP `create_issue` tool and executes
-   that call through the remote MCP server. Falls back to the REST API when MCP fails.
+1. **Files the issue.** Asks `mistral-large-latest` for the priority (`low`, `medium` or `high`,
+   recorded in the trace), makes sure the `patchlet` and `priority:<level>` labels exist on the
+   repository, and labels the issue with both. Dedupes against open issues by title: a repeat
+   raises the "Requested N times" line in the existing issue's body and adds a comment with the
+   new user's words instead of filing twice. Otherwise it asks `mistral-large-latest` to call the
+   GitHub MCP `create_issue` tool and executes that call through the remote MCP server, falling
+   back to the REST API when MCP fails.
 2. **Inspects the repository.** Shallow clone, reads `AGENTS.md`, ranks the source files by the
    request's keywords, and asks `mistral-large-latest` (JSON output) for the minimal set of 2 to 5
    files to change, with a reason each, plus acceptance criteria. New files are planned when needed.
@@ -18,11 +22,16 @@ For one escalation it:
    typecheck`, `npm run build`. On failure the gate output goes back to the editor for the affected
    file (up to 3 repairs), then a fresh candidate is drafted (up to 2 candidates).
 4. **Opens a draft pull request** on `patchlet/<issue>-<slug>` with one commit
-   (`feat: <title>`, `Closes #<n>`), through MCP `create_pull_request` with a REST fallback, and
-   pauses with `wait_for_input(Approval, label="Merge this pull request?")`.
+   (`feat: <title>`, `Closes #<n>`), through MCP `create_pull_request` with a REST fallback, then
+   comments on it with the gate results (`npm run typecheck` and `npm run build`, with durations)
+   and a link to `NEXT_PUBLIC_APP_URL/console/activity`, and pauses with
+   `wait_for_input(Approval, label="Merge this pull request?")`.
 5. **After approval** marks the PR ready (GraphQL `markPullRequestReadyForReview`), waits for
    `mergeable`, squash-merges, and polls Vercel until the deployment for the merge commit is
    `READY`. After a rejection it closes the PR with a comment.
+
+When `SLACK_WEBHOOK_URL` is set, one message goes out when the issue is filed and one when the
+draft pull request opens.
 
 Every step updates `escalation.status` and writes `trace_event` rows (source `workflow`) through
 PostgREST, so the console's Activity page shows the run live. A heartbeat writes a `status` trace

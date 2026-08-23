@@ -7,6 +7,7 @@ import hashlib
 import os
 import shutil
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -90,16 +91,24 @@ class GateResult:
     ok: bool
     output: str
     skipped: bool = False
+    duration_s: float = 0.0
 
 
 def run_command(root: Path, args: list[str], timeout_s: int = GATE_TIMEOUT_S) -> tuple[bool, str]:
+    ok, output, _ = timed_command(root, args, timeout_s)
+    return ok, output
+
+
+def timed_command(root: Path, args: list[str], timeout_s: int = GATE_TIMEOUT_S) -> tuple[bool, str, float]:
+    """Same as `run_command`, and how long it took: the PR comment reports the gate durations."""
     env = dict(os.environ, CI="1", NEXT_TELEMETRY_DISABLED="1", FORCE_COLOR="0")
+    started = time.monotonic()
     try:
         completed = subprocess.run(args, cwd=root, capture_output=True, text=True, env=env, timeout=timeout_s)
     except subprocess.TimeoutExpired as error:
-        return False, f"timed out after {timeout_s}s\n{error.stdout or ''}{error.stderr or ''}"
+        return False, f"timed out after {timeout_s}s\n{error.stdout or ''}{error.stderr or ''}", time.monotonic() - started
     output = (completed.stdout or "") + (completed.stderr or "")
-    return completed.returncode == 0, output
+    return completed.returncode == 0, output, time.monotonic() - started
 
 
 def _lockfile_hash(root: Path) -> str | None:
@@ -124,6 +133,7 @@ def ensure_node_modules(root: Path, repo_slug: str) -> GateResult:
     under a second); a symlink would be rejected by Turbopack because it points outside the project.
     A fresh install is copied into the cache afterwards so the next run can reuse it.
     """
+    started = time.monotonic()
     lock_hash = _lockfile_hash(root)
     cache_dir = config.cache_root() / repo_slug
     cached_modules = cache_dir / "node_modules"
@@ -135,15 +145,15 @@ def ensure_node_modules(root: Path, repo_slug: str) -> GateResult:
         shutil.rmtree(local_modules, ignore_errors=True)
     if lock_hash and cached_modules.is_dir() and stamp.exists() and stamp.read_text().strip() == lock_hash:
         _copy_tree(cached_modules, local_modules)
-        return GateResult("npm ci", True, f"reused cached node_modules for lockfile {lock_hash[:12]}", skipped=True)
-    ok, output = run_command(root, ["npm", "ci", "--no-audit", "--no-fund", "--loglevel=error"])
+        return GateResult("npm ci", True, f"reused cached node_modules for lockfile {lock_hash[:12]}", skipped=True, duration_s=time.monotonic() - started)
+    ok, output, _ = timed_command(root, ["npm", "ci", "--no-audit", "--no-fund", "--loglevel=error"])
     if ok and lock_hash and local_modules.is_dir():
         cache_dir.mkdir(parents=True, exist_ok=True)
         if cached_modules.exists():
             shutil.rmtree(cached_modules, ignore_errors=True)
         _copy_tree(local_modules, cached_modules)
         stamp.write_text(lock_hash)
-    return GateResult("npm ci", ok, output[-8000:])
+    return GateResult("npm ci", ok, output[-8000:], duration_s=time.monotonic() - started)
 
 
 def run_gates(root: Path, repo_slug: str, install: bool = True) -> list[GateResult]:
@@ -155,8 +165,8 @@ def run_gates(root: Path, repo_slug: str, install: bool = True) -> list[GateResu
         if not install_result.ok:
             return results
     for name, args in (("npm run typecheck", ["npm", "run", "--silent", "typecheck"]), ("npm run build", ["npm", "run", "--silent", "build"])):
-        ok, output = run_command(root, args)
-        results.append(GateResult(name, ok, output[-8000:]))
+        ok, output, seconds = timed_command(root, args)
+        results.append(GateResult(name, ok, output[-8000:], duration_s=seconds))
         if not ok:
             break
     return results

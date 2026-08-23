@@ -49,5 +49,14 @@ def slack_webhook_url() -> str:
     return optional("SLACK_WEBHOOK_URL")
 
 
+def app_url() -> str:
+    """Public origin of the dashboard, so the worker can link back to it from GitHub."""
+    return optional("NEXT_PUBLIC_APP_URL", "http://localhost:3000").rstrip("/")
+
+
+def activity_url() -> str:
+    return f"{app_url()}/console/activity"
+
+
 def cache_root() -> Path:
     return Path(optional("PATCHLET_CACHE_DIR", str(Path.home() / ".cache" / "patchlet")))

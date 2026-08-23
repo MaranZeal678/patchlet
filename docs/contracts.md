@@ -61,6 +61,7 @@ create table conversation (
   page_title text,
   outcome text,                            -- 'solved' | 'missing_feature' | 'unresolved' (migration 0003)
   summary text,                            -- one sentence, written when the turn finishes
+  visitor_id text,                         -- the widget's anonymous browser id (migration 0006)
   created_at timestamptz not null default now()
 );
 
@@ -108,6 +109,18 @@ create table trace_event (
   title text not null,
   detail jsonb,                            -- free-form, rendered per kind, see section 3
   created_at timestamptz not null default now()
+);
+
+-- What the agent remembers about one anonymous visitor (migration 0006). Nothing sensitive is
+-- stored here: no emails, phone numbers, keys or passwords.
+create table visitor_memory (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references project on delete cascade,
+  visitor_id text not null,                -- random id the widget keeps in localStorage
+  fact text not null,                      -- one short third-person sentence
+  source_conversation_id uuid references conversation on delete set null,
+  created_at timestamptz not null default now(),
+  unique (project_id, visitor_id, fact)
 );
 
 create index on trace_event (project_id, id);
@@ -190,7 +203,7 @@ export type FeatureRequest = {
 // /api/chat SSE events, in order of emission
 export type ChatEvent =
   | { type: "conversation"; conversationId: string; messageId: string }
-  | { type: "understanding"; feature: string; intent: "howto" | "feature" | "other" }
+  | { type: "understanding"; feature: string; intent: "howto" | "feature" | "other"; memory: string[] }
   | { type: "probe"; probe: ProbeName; status: "running" }
   | { type: "probe"; probe: ProbeName; status: "done"; result: ProbeResult }
   | { type: "verdict"; verdict: Verdict }
@@ -239,8 +252,8 @@ is a single seeded project, so every signed-in user sees the same one.
 
 | Route | Body / query | Returns |
 |---|---|---|
-| `POST /api/chat` | `{key, conversationId?, question, page: PageContext, continueFrom?}` | SSE of `ChatEvent`; each `data:` line is one JSON event, `event:` is its type |
-| `POST /api/escalate` | `{key, conversationId, messageId}` | `{escalationId, status}` |
+| `POST /api/chat` | `{key, conversationId?, visitorId?, question, page: PageContext, continueFrom?}` | SSE of `ChatEvent`; each `data:` line is one JSON event, `event:` is its type |
+| `POST /api/escalate` | `{key, conversationId, messageId, visitorId?}` | `{escalationId, status}` |
 | `GET /api/escalations/:id` | `?key=` optional | `{id, status, issueUrl, prUrl, deploymentUrl, request, approval, createdAt}` |
 | `POST /api/transcribe` | multipart `key`, `file` (audio/webm or mp3) | `{text}` |
 | `POST /api/speak` | `{key, text}` | `audio/mpeg` bytes, streamed as the TTS deltas arrive |
@@ -250,7 +263,7 @@ is a single seeded project, so every signed-in user sees the same one.
 | `POST /api/documents` | multipart `file` (pdf, png, jpg, md, txt, html), or JSON `{url}`, or JSON `{title, text}` | ingests synchronously, returns the document row |
 | `DELETE /api/documents/:id` | - | `{ok: true}` |
 | `GET /api/conversations` | `?limit=`, `?outcome=` (`solved`, `missing_feature`, `unresolved`) | `{conversations: ConversationSummary[], counts}`, newest first |
-| `GET /api/conversations/:id` | - | `{conversation}`: every message in order with its steps, probes, verdict and feature request, plus the escalation |
+| `GET /api/conversations/:id` | - | `{conversation}`: every message in order with its steps, probes, verdict and feature request, the escalation, and `memory: string[]`, the facts the agent keeps about that visitor |
 | `GET /api/escalations` | - | `{escalations: Escalation[]}`, newest first |
 | `POST /api/escalations/:id/approve` | `{approved: boolean, note?: string}` | `{ok: true, status}` |
 | `GET /api/trace/stream` | `?since=&conversationId=&escalationId=` | SSE; `id:` is the `trace_event.id`, `event: trace`, `data: TraceEvent` |
@@ -288,7 +301,8 @@ The console renders these specially and falls back to a key/value list for anyth
 1. Insert the conversation if it is new, insert the user message, emit `conversation`.
 2. **Understand** with `MODELS.understand` and a JSON schema: `{intent, feature, keywords[]}`, where
    `feature` is the short noun phrase the user is asking about ("dark mode", "changing the
-   username"). Emit `understanding`.
+   username"). Load what the agent remembers about this `visitorId` (at most 20 facts, oldest
+   first) and emit `understanding` with them as `memory`.
 3. **Three probes in parallel.** Each emits `probe running`, then `probe done`, and writes a
    `trace_event` with source `agent` and kind `probe`.
    - **docs**: embed the question, call `match_chunks` for the top 6. The score is the top
