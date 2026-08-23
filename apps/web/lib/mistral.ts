@@ -81,13 +81,14 @@ export async function chatJson<T>(
   model: string,
   messages: ChatMessage[],
   schema: JsonSchema,
-  options: { name?: string } = {},
+  options: { name?: string; maxTokens?: number } = {},
 ): Promise<T> {
   const response = await postJson("/chat/completions", {
     model,
     messages,
     temperature: 0,
     top_p: 1,
+    ...(options.maxTokens ? { max_tokens: options.maxTokens } : {}),
     response_format: {
       type: "json_schema",
       json_schema: { name: options.name ?? "result", schema, strict: true },

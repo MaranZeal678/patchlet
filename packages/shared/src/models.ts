@@ -5,7 +5,13 @@
 export const MODELS = {
   /** Fast understanding and small JSON tasks. */
   understand: "mistral-small-latest",
-  /** Answers, step plans, issue drafting, code planning. */
+  /**
+   * Grounded answers with a step plan, and the continuation plan mid-guidance.
+   * Both are small structured tasks over evidence that is already gathered, and
+   * guidance has to keep up with the user's hand on the page.
+   */
+  plan: "mistral-small-latest",
+  /** Issue drafting and code planning, where the writing has to stand on its own. */
   answer: "mistral-large-latest",
   /** Absence verdict, a reasoning model. */
   verdict: "magistral-medium-latest",
