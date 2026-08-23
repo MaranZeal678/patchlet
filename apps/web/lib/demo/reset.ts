@@ -15,7 +15,7 @@ export type ResetOptions = {
   githubToken: string | null;
   supabaseUrl: string | null;
   supabaseKey: string | null;
-  /** Only this project's conversations, escalations and trace events are cleared. */
+  /** Only this project's conversations, requests, escalations and trace events are cleared. */
   projectId: string;
   /** Report what would happen and change nothing. */
   dryRun?: boolean;
@@ -29,6 +29,7 @@ export type ResetSummary = {
   branchesDeleted: number;
   traceEvents: number;
   escalations: number;
+  requestGroups: number;
   conversations: number;
   /** Anything that could not be done, in words a person can act on. */
   problems: string[];
@@ -143,8 +144,8 @@ function reason(error: unknown): string {
 }
 
 /**
- * Closes what the worker opened, deletes its branches, and clears the conversations, escalations
- * and trace events of one project. A step that fails is recorded and the rest still runs, because
+ * Closes what the worker opened, deletes its branches, and clears the conversations, request
+ * groups, escalations and trace events of one project. A step that fails is recorded and the rest still runs, because
  * a half-reset demo is worse than one that says which half is left.
  */
 export async function resetDemo(options: ResetOptions): Promise<ResetSummary> {
@@ -157,6 +158,7 @@ export async function resetDemo(options: ResetOptions): Promise<ResetSummary> {
     branchesDeleted: 0,
     traceEvents: 0,
     escalations: 0,
+    requestGroups: 0,
     conversations: 0,
     problems: [],
   };
@@ -182,10 +184,13 @@ export async function resetDemo(options: ResetOptions): Promise<ResetSummary> {
 
   const { supabaseUrl, supabaseKey, projectId } = options;
   if (supabaseUrl && supabaseKey) {
-    // Trace events first: they point at the escalations and conversations that follow.
+    // Trace events first: they point at the escalations and conversations that follow. Request
+    // groups have to go too, or the next demo joins the group this one left behind and files
+    // nothing.
     for (const [name, table] of [
       ["traceEvents", "trace_event"],
       ["escalations", "escalation"],
+      ["requestGroups", "feature_request_group"],
       ["conversations", "conversation"],
     ] as const) {
       try {
