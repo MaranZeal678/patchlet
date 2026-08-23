@@ -15,7 +15,7 @@ the service role, which bypasses RLS. Nothing else is granted access.
 ```sql
 create table project (
   id uuid primary key default gen_random_uuid(),
-  owner_id uuid unique,                    -- the Supabase auth user that owns this workspace
+  owner_id uuid unique references auth.users on delete cascade,  -- the account that owns this workspace
   slug text not null unique,               -- from the company name, suffixed when taken
   name text not null,
   company text,                            -- the company name from the sign-up form
