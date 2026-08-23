@@ -62,7 +62,14 @@ def decrypt_token(stored: str, service_role_key: str | None = None) -> str | Non
 
 
 def project_token(project_id: str) -> str | None:
-    """The token the project's owner linked, or None when nobody linked an account."""
-    project: dict[str, Any] | None = db.get_project(project_id)
+    """The token the project's owner linked, or None when nobody linked an account.
+
+    A lookup that fails is not worth failing the run over: the caller falls back to the server
+    credential, which is what a project without a linked account uses anyway.
+    """
+    try:
+        project: dict[str, Any] | None = db.get_project(project_id)
+    except Exception:  # noqa: BLE001 - any transport or database failure means "no linked token"
+        return None
     stored = (project or {}).get("github_token")
     return decrypt_token(stored) if stored else None

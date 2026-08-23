@@ -73,3 +73,11 @@ def test_project_token_prefers_the_linked_token(monkeypatch: pytest.MonkeyPatch)
 def test_project_token_is_none_when_no_account_is_linked(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(github_token.db, "get_project", lambda _id: {"github_token": None})
     assert github_token.project_token("some-project") is None
+
+
+def test_a_failed_lookup_falls_back_to_the_server_credential(monkeypatch: pytest.MonkeyPatch) -> None:
+    def explode(_id: str) -> dict[str, str]:
+        raise RuntimeError("PostgREST is unreachable")
+
+    monkeypatch.setattr(github_token.db, "get_project", explode)
+    assert github_token.project_token("some-project") is None
