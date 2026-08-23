@@ -26,9 +26,17 @@ def test_issue_write_arguments_get_the_create_method() -> None:
 @responses.activate
 def test_file_issue_falls_back_to_rest_when_mcp_fails() -> None:
     responses.post(mcp_github.MCP_URL, status=500, body="boom")
+    responses.get(f"{API}/issues", json=[])
     responses.post(f"{API}/issues", json={"number": 9, "html_url": "https://github.com/AadiDahake/not-mistral/issues/9"})
     rest = GitHubClient("AadiDahake/not-mistral", token="t")
     result = mcp_github.file_issue_with_model("AadiDahake/not-mistral", "Add dark mode", "body", ["patchlet"], rest=rest)
     assert result["number"] == 9
     assert result["transport"] == "rest"
     assert "MCP failed" in result["result_summary"]
+
+
+def test_number_is_taken_from_the_url_when_missing() -> None:
+    result = {"content": [{"type": "text", "text": '{"id":"5224554017","url":"https://github.com/AadiDahake/not-mistral/issues/4"}'}]}
+    assert mcp_github._issue_from_tool_result(result) == (4, "https://github.com/AadiDahake/not-mistral/issues/4")
+    pr = {"structuredContent": {"number": 7, "html_url": "https://github.com/AadiDahake/not-mistral/pull/7"}}
+    assert mcp_github._issue_from_tool_result(pr) == (7, "https://github.com/AadiDahake/not-mistral/pull/7")

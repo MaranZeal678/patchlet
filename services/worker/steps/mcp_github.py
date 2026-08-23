@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 import requests
@@ -109,8 +110,15 @@ def _content_text(result: dict[str, Any]) -> str:
     return "\n".join(parts)
 
 
+NUMBER_IN_URL = re.compile(r"/(?:issues|pull|pulls)/(\d+)")
+
+
 def _issue_from_tool_result(result: dict[str, Any]) -> tuple[int, str]:
-    """Find the issue number and html url in whatever the MCP tool returned."""
+    """Find the issue or PR number and html url in whatever the MCP tool returned.
+
+    The GitHub MCP server returns a trimmed object ({id, url, ...}) without `number`, so the
+    number is taken from the url when it is not given.
+    """
     structured = result.get("structuredContent")
     candidates: list[Any] = [structured] if structured else []
     text = _content_text(result)
@@ -120,11 +128,15 @@ def _issue_from_tool_result(result: dict[str, Any]) -> tuple[int, str]:
         except json.JSONDecodeError:
             pass
     for candidate in candidates:
-        if isinstance(candidate, dict):
-            number = candidate.get("number")
-            url = candidate.get("html_url") or candidate.get("url")
-            if number and url:
-                return int(number), str(url)
+        if not isinstance(candidate, dict):
+            continue
+        url = candidate.get("html_url") or candidate.get("url") or ""
+        number = candidate.get("number")
+        if not number and url:
+            match = NUMBER_IN_URL.search(str(url))
+            number = int(match.group(1)) if match else None
+        if number and url:
+            return int(number), str(url)
     raise McpError(f"could not find issue number and url in tool result: {text[:300]}")
 
 
@@ -209,6 +221,16 @@ def file_issue_with_model(
         }
     except Exception as error:  # noqa: BLE001 - any MCP or model failure must fall back to REST
         fallback = rest or GitHubClient(repo_full_name)
+        # MCP may have created the issue before failing to report it; never file a second one.
+        existing = fallback.find_open_issue_by_title(title)
+        if existing:
+            return {
+                "number": int(existing["number"]),
+                "url": existing["html_url"],
+                "transport": "mcp",
+                "args_summary": f"create_issue({owner}/{repo}, title={title!r})",
+                "result_summary": f"issue #{existing['number']} created through MCP (found by title after {str(error)[:120]})",
+            }
         issue = fallback.create_issue(title, body, labels)
         return {
             "number": int(issue["number"]),
@@ -243,5 +265,9 @@ def open_draft_pr_with_fallback(
         number, _url = _issue_from_tool_result(result)
         return fallback.get_pr(number), "mcp", f"draft PR #{number} created through MCP"
     except Exception as error:  # noqa: BLE001 - REST is the fallback for any MCP failure
+        # MCP may have created the PR before failing to report it; never open a second one.
+        existing = fallback.find_open_pr_for_branch(head)
+        if existing:
+            return existing, "mcp", f"draft PR #{existing['number']} created through MCP (result parsed from the PR list)"
         pr = fallback.open_draft_pr(title, body, head, base)
         return pr, "rest", f"MCP failed ({str(error)[:160]}); draft PR #{pr['number']} created through REST"
