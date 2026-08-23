@@ -8,7 +8,7 @@ import { keywordScore, concepts } from "@patchlet/shared";
 import type { Affordance, PageContext, ProbeResult } from "@patchlet/shared";
 import { embed } from "../mistral";
 import { serviceClient } from "../supabase";
-import { githubToken } from "../env";
+import { activeGithubToken } from "../github/connection";
 
 /** Words that mean the same thing to a user but not to a string comparison. */
 const SYNONYMS: Record<string, string[]> = {
@@ -162,7 +162,12 @@ export async function probeRepository(
     } else {
       const response = await fetch(
         `https://api.github.com/repos/${repoFullName}/git/trees/${branch}?recursive=1`,
-        { headers: { authorization: `Bearer ${githubToken()}`, accept: "application/vnd.github+json" } },
+        {
+          headers: {
+            authorization: `Bearer ${await activeGithubToken()}`,
+            accept: "application/vnd.github+json",
+          },
+        },
       );
       if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
       const body = (await response.json()) as { tree?: { path: string; type: string }[] };

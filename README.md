@@ -94,6 +94,26 @@ npm run db:seed                   # creates the seeded project and prints its em
 Every variable is documented in `.env.example`. Nothing in this repository reads a secret from a
 file that is committed; supply them through your own environment or secret manager.
 
+### Signing in
+
+The console is behind Supabase Auth (email and password). Open `/signin`, choose **Create account**,
+give a company name, an address and a password, and you land on `/console`. `apps/web/proxy.ts`
+sends anonymous visits to `/console/**` back to `/signin`; the landing page and every `/api/*`
+route stay public, because the widget on a customer's site and the worker call them without a
+browser session. There is one seeded project, so every signed-in user manages the same one.
+
+Because this Supabase project confirms addresses by email, sign-up goes through
+`POST /api/auth/signup`, which creates the account already confirmed with the service role. The
+browser then signs in with the password, and sign-in and sign-out use the client SDK from there on.
+
+### Linking GitHub
+
+`/console/repository` links a GitHub account through `GITHUB_OAUTH_CLIENT_ID`,
+`GITHUB_OAUTH_CLIENT_SECRET` and `GITHUB_OAUTH_REDIRECT`, and stores the access token encrypted on
+the project row. Every GitHub call prefers that token and falls back to `GITHUB_TOKEN`, so the
+repository picker and the agent keep working on a deployment with no OAuth app configured; the
+page then says it is connected through the server credential.
+
 ## Running locally
 
 ```bash

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AccountMenu } from "@/components/console/AccountMenu";
 import { Mark } from "@/components/landing/Mark";
 
 const LINKS = [
@@ -12,8 +13,14 @@ const LINKS = [
   { href: "/console/activity", label: "Activity" },
 ] as const;
 
+type Props = {
+  email: string;
+  company: string | null;
+  githubLogin: string | null;
+};
+
 /** The console's top bar. The exact match keeps Overview from staying lit on child pages. */
-export function ConsoleNav() {
+export function ConsoleNav({ email, company, githubLogin }: Props) {
   const pathname = usePathname();
 
   return (
@@ -37,6 +44,7 @@ export function ConsoleNav() {
           );
         })}
       </nav>
+      <AccountMenu email={email} company={company} githubLogin={githubLogin} />
     </header>
   );
 }

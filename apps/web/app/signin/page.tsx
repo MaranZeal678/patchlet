@@ -1,0 +1,20 @@
+import type { Metadata } from "next";
+import { AuthScreen } from "@/components/auth/AuthScreen";
+
+export const metadata: Metadata = {
+  title: "Sign in - Patchlet",
+};
+
+export const dynamic = "force-dynamic";
+
+type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+export default async function SignInPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const requested = params.next;
+  // Only ever bounce back into the console, so the parameter cannot become an open redirect.
+  const next =
+    typeof requested === "string" && requested.startsWith("/console") ? requested : "/console";
+
+  return <AuthScreen next={next} />;
+}
