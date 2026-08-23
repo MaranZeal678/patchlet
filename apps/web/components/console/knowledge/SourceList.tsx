@@ -64,7 +64,7 @@ export function SourceList({ documents, busyId, onPreview, onReindex, onReplace,
               </div>
 
               {document.sourceRef ? (
-                <p className="record-card__line">
+                <p className="record-card__line is-clipped" title={document.sourceRef}>
                   <span className="record-card__label">Source</span>
                   {document.sourceRef}
                 </p>

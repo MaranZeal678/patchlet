@@ -177,7 +177,7 @@ export function ConversationsConsole({
                       {conversation.question ?? "Conversation"}
                     </p>
                     {conversation.pageTitle ? (
-                      <p className="record-card__line">
+                      <p className="record-card__line is-clipped" title={conversation.pageTitle}>
                         <span className="record-card__label">Page</span>
                         {conversation.pageTitle}
                       </p>

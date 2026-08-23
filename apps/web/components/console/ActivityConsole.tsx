@@ -164,7 +164,7 @@ export function ActivityConsole({
                         {escalation.request?.title ?? "Feature request"}
                       </p>
                       {escalation.request?.quote ? (
-                        <p className="record-card__line">
+                        <p className="record-card__line is-clipped" title={escalation.request.quote}>
                           <span className="record-card__label">Asked</span>
                           {escalation.request.quote}
                         </p>
@@ -204,7 +204,7 @@ export function ActivityConsole({
                         {conversation.question ?? conversation.pageTitle ?? "Conversation"}
                       </p>
                       {conversation.pageTitle ? (
-                        <p className="record-card__line">
+                        <p className="record-card__line is-clipped" title={conversation.pageTitle}>
                           <span className="record-card__label">Page</span>
                           {conversation.pageTitle}
                         </p>

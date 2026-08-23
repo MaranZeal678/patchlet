@@ -20,6 +20,16 @@
   --accent-soft: #e9f0e8;
   --sage: #8fbf9f;
 
+  /* The two off-accent tones. Every warning and every failure in the app is one of these, so
+     there is one place to change either. */
+  --amber-ink: #7a5a10;
+  --amber-soft: #f6ecd2;
+  --amber-line: rgba(122, 90, 16, 0.28);
+  --danger-ink: #8b2f20;
+  --danger-strong: #b3261e;
+  --danger-soft: #f8ded8;
+  --danger-line: rgba(150, 52, 36, 0.3);
+
   --shadow: 0 22px 70px -38px rgba(23, 32, 28, 0.55);
   --shadow-lift: 0 30px 60px -34px rgba(23, 32, 28, 0.6);
 
@@ -270,8 +280,15 @@ body {
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 32px;
+  gap: 16px 32px;
   margin-bottom: 28px;
+}
+
+@media (max-width: 768px) {
+  .page-head {
+    align-items: flex-start;
+    margin-bottom: 20px;
+  }
 }
 
 .page-title {
@@ -326,19 +343,31 @@ body {
   line-height: 1.1;
 }
 
-.count-pill {
+/* One badge scale. Anything that reads as a small status pill uses these metrics so the
+   console never shows two sizes of the same idea side by side. */
+.count-pill,
+.outcome-badge {
+  display: inline-block;
   padding: 3px 10px;
+  border: 1px solid transparent;
   border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.5;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.count-pill {
+  border-color: rgba(46, 111, 84, 0.18);
   background: var(--accent-soft);
   color: var(--accent-deep);
-  font-size: 0.78rem;
-  font-weight: 800;
 }
 
 .stat-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
 }
 
 .stat {
@@ -387,9 +416,15 @@ body {
 
 /* --- Controls -------------------------------------------------------------------- */
 
+/*
+ * Three buttons and no more: filled for the one thing the page is for, outlined for everything
+ * beside it, outlined in red for the one that cannot be taken back. `.ghost-action` is the
+ * second style under an older name; it is kept as an alias rather than a fourth look.
+ */
 .primary-action,
 .secondary-action,
-.ghost-action {
+.ghost-action,
+.danger-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -400,6 +435,7 @@ body {
   border-radius: 999px;
   font-size: 0.88rem;
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
   transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
 }
@@ -426,9 +462,21 @@ body {
   background: rgba(46, 111, 84, 0.08);
 }
 
+.danger-action {
+  border-color: var(--danger-line);
+  background: transparent;
+  color: var(--danger-ink);
+}
+
+.danger-action:hover:not(:disabled) {
+  border-color: var(--danger-strong);
+  background: var(--danger-soft);
+}
+
 .primary-action:disabled,
 .secondary-action:disabled,
-.ghost-action:disabled {
+.ghost-action:disabled,
+.danger-action:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -436,9 +484,12 @@ body {
 .primary-action:focus-visible,
 .secondary-action:focus-visible,
 .ghost-action:focus-visible,
-.filter-chip:focus-visible {
+.danger-action:focus-visible,
+.filter-chip:focus-visible,
+.link-button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+  border-radius: 999px;
 }
 
 .link-button {
@@ -463,9 +514,10 @@ body {
 
 .field-input {
   display: block;
+  box-sizing: border-box;
   width: 100%;
-  min-height: 40px;
-  padding: 8px 12px;
+  min-height: 42px;
+  padding: 9px 12px;
   border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-field);
   background: var(--panel);
@@ -514,10 +566,16 @@ body {
 }
 
 .ext-link {
+  display: inline-block;
+  overflow: hidden;
+  max-width: 100%;
   color: var(--accent-deep);
   font-weight: 700;
   text-decoration: underline;
+  text-overflow: ellipsis;
   text-underline-offset: 2px;
+  vertical-align: bottom;
+  white-space: nowrap;
 }
 
 .ext-link:hover {
@@ -537,13 +595,15 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  min-height: 34px;
+  padding: 0 13px;
   border: 1px solid var(--hairline-strong);
   border-radius: 999px;
   background: transparent;
   color: var(--ink);
   font-size: 0.82rem;
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
   transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
 }
@@ -559,11 +619,15 @@ body {
 }
 
 .filter-chip__count {
-  padding: 1px 7px;
+  display: inline-block;
+  min-width: 1.55em;
+  padding: 1px 6px;
   border-radius: 999px;
   background: rgba(23, 32, 28, 0.08);
   font-size: 0.72rem;
   font-weight: 800;
+  line-height: 1.5;
+  text-align: center;
 }
 
 .filter-chip.is-active .filter-chip__count {
@@ -583,9 +647,9 @@ body {
 }
 
 .notice.is-error {
-  border-color: rgba(150, 52, 36, 0.3);
-  background: #f8ded8;
-  color: #8b2f20;
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+  color: var(--danger-ink);
 }
 
 .empty-state {
@@ -670,6 +734,13 @@ body {
   line-height: 1.45;
 }
 
+/* For the lines that carry a URL, a path or a file name: one line, clipped at the card edge. */
+.record-card__line.is-clipped {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .record-card__label {
   display: inline-block;
   min-width: 58px;
@@ -690,35 +761,35 @@ body {
 }
 
 .outcome-badge {
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
 }
 
 .outcome-badge.is-good {
+  border-color: rgba(46, 111, 84, 0.2);
   background: #e1efe4;
   color: var(--accent-deep);
 }
 
 .outcome-badge.is-run {
+  border-color: rgba(42, 70, 112, 0.2);
   background: #e4eaf3;
   color: #2a4670;
 }
 
 .outcome-badge.is-wait {
-  background: #f6ecd2;
-  color: #7a5a10;
+  border-color: var(--amber-line);
+  background: var(--amber-soft);
+  color: var(--amber-ink);
 }
 
 .outcome-badge.is-bad {
-  background: #f8ded8;
-  color: #8b2f20;
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+  color: var(--danger-ink);
 }
 
 .outcome-badge.is-muted {
+  border-color: var(--hairline);
   background: #ece7db;
   color: var(--muted);
 }
@@ -980,7 +1051,7 @@ body {
 }
 
 .trace-row.is-failed {
-  border-left-color: #b3261e;
+  border-left-color: var(--danger-strong);
 }
 
 .trace-row.is-artifact {
@@ -1090,6 +1161,7 @@ body {
 
 .trace-files li {
   display: grid;
+  min-width: 0;
   gap: 2px;
   padding: 8px 10px;
   border: 1px solid var(--hairline);
@@ -1097,10 +1169,16 @@ body {
   background: var(--panel);
 }
 
+/* A repository path is long and its tail is the useful part, but a wrapped path reads as two
+   files. One line, clipped, with the whole value on hover. */
 .trace-files code {
+  overflow: hidden;
+  min-width: 0;
   font-family: var(--font-mono);
   font-size: 0.78rem;
   color: var(--accent-deep);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .trace-files span {
@@ -1139,12 +1217,15 @@ body {
 }
 
 .trace-diff__path {
+  overflow: hidden;
   padding: 8px 12px;
   border-bottom: 1px solid var(--hairline);
   background: var(--surface);
   font-family: var(--font-mono);
   font-size: 0.76rem;
   color: var(--accent-deep);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .trace-diff__body {
@@ -1171,7 +1252,7 @@ body {
 
 .trace-diff__line.is-del {
   background: rgba(179, 38, 30, 0.08);
-  color: #8b2f20;
+  color: var(--danger-ink);
 }
 
 .trace-diff__line.is-meta {
@@ -1659,9 +1740,9 @@ body {
 }
 
 .auth-message.is-error {
-  border-color: rgba(150, 52, 36, 0.3);
-  background: #f8ded8;
-  color: #8b2f20;
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+  color: var(--danger-ink);
 }
 
 .auth-switch {
@@ -1847,7 +1928,7 @@ body {
 }
 
 .account-menu__item--danger {
-  color: #8b2f20;
+  color: var(--danger-ink);
 }
 
 .account-menu__item--danger:hover:not(:disabled) {
@@ -2136,10 +2217,13 @@ body {
 }
 
 .dropzone__primary {
+  overflow: hidden;
+  max-width: 100%;
   color: var(--ink);
   font-size: 0.95rem;
   font-weight: 700;
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dropzone__hint {
@@ -2163,9 +2247,9 @@ body {
 }
 
 .ingest-feedback.is-error {
-  border-color: rgba(150, 52, 36, 0.3);
-  background: #f8ded8;
-  color: #8b2f20;
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+  color: var(--danger-ink);
 }
 
 .source-row {
@@ -2243,11 +2327,11 @@ body {
 }
 
 .row-action.is-danger {
-  color: #8b2f20;
+  color: var(--danger-ink);
 }
 
 .row-action.is-danger:hover:not(:disabled) {
-  background: #f8ded8;
+  background: var(--danger-soft);
 }
 
 /* --- Knowledge bar, gate and confirmations ---------------------------------------- */
@@ -2600,7 +2684,7 @@ body {
   border-left: 2px solid var(--hairline);
   border-radius: 0 8px 8px 0;
   /* The tint deepens as the reader's confidence falls, so a page reads as a heat map. */
-  background: color-mix(in srgb, #f6dcd6 calc(var(--tint) * 100%), rgba(235, 231, 220, 0.45));
+  background: color-mix(in srgb, var(--danger-soft) calc(var(--tint) * 100%), rgba(235, 231, 220, 0.45));
   color: var(--ink);
   font-family: var(--font-mono);
   font-size: 0.78rem;
@@ -2611,7 +2695,7 @@ body {
 
 /* Below the threshold the block also gets an edge, so a bad read is findable by scrolling. */
 .page-block.is-low {
-  border-left-color: #a8402e;
+  border-left-color: var(--danger-strong);
 }
 
 .page-block__score {
@@ -2672,4 +2756,45 @@ body {
   max-height: min(620px, calc(100vh - 320px));
   overflow-y: auto;
   padding-right: 4px;
+}
+
+/* --- Scroll boxes ------------------------------------------------------------------ */
+
+/* The console has several panels that scroll inside themselves. A default scrollbar reads as
+   browser chrome dropped into the page, so these get a hairline one in the palette. */
+.list-column,
+.trace-body,
+.sources-scroll,
+.drawer__body,
+.trace-diff__body {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.list-column::-webkit-scrollbar,
+.trace-body::-webkit-scrollbar,
+.sources-scroll::-webkit-scrollbar,
+.drawer__body::-webkit-scrollbar,
+.trace-diff__body::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+.list-column::-webkit-scrollbar-thumb,
+.trace-body::-webkit-scrollbar-thumb,
+.sources-scroll::-webkit-scrollbar-thumb,
+.drawer__body::-webkit-scrollbar-thumb,
+.trace-diff__body::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--line);
+  background-clip: content-box;
+}
+
+.list-column::-webkit-scrollbar-track,
+.trace-body::-webkit-scrollbar-track,
+.sources-scroll::-webkit-scrollbar-track,
+.drawer__body::-webkit-scrollbar-track,
+.trace-diff__body::-webkit-scrollbar-track {
+  background: transparent;
 }
