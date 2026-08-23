@@ -25,13 +25,27 @@ export async function POST(request: Request): Promise<Response> {
     .eq("embed_key", body.key)
     .maybeSingle();
   if (!project) return withCors(Response.json({ error: "unknown key" }, { status: 403 }));
+  // Nothing downstream works without a repository: no issue to file, no branch to push.
+  if (!project.repo_full_name) {
+    return withCors(
+      Response.json(
+        { error: "no repository is connected to this project", reason: "no_repository" },
+        { status: 409 },
+      ),
+    );
+  }
 
+  // The key names a project, so the message it points at has to belong to that project too.
   const { data: message } = await db
     .from("message")
-    .select("id, content, feature_request")
+    .select("id, content, feature_request, conversation:conversation_id(project_id)")
     .eq("id", body.messageId)
     .maybeSingle();
-  const featureRequest = message?.feature_request as Record<string, unknown> | null;
+  const conversation = message?.conversation as { project_id?: string } | null;
+  const featureRequest =
+    conversation?.project_id === project.id
+      ? (message?.feature_request as Record<string, unknown> | null)
+      : null;
   if (!featureRequest) {
     return withCors(Response.json({ error: "that message has no feature request" }, { status: 400 }));
   }

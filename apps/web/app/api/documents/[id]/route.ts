@@ -1,6 +1,6 @@
 /** One source: what was read out of it, and removing it. */
 import { corsJson, preflight } from "@/lib/cors";
-import { loadProject } from "@/lib/console/project";
+import { asErrorResponse, currentProject } from "@/lib/console/current";
 import { DOCUMENT_COLUMNS, toConsoleDocument } from "@/lib/ingest/run";
 import { removeOriginals } from "@/lib/ingest/storage";
 import type { IngestPage } from "@/lib/ingest/types";
@@ -18,11 +18,15 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> },
 ): Promise<Response> {
+  const project = await currentProject().catch(asErrorResponse);
+  if (project instanceof Response) return project;
+
   const { id } = await context.params;
   const { data, error } = await serviceClient()
     .from("document")
     .select(`${DOCUMENT_COLUMNS}, pages`)
     .eq("id", id)
+    .eq("project_id", project.id)
     .maybeSingle();
 
   if (error) return corsJson({ error: error.message }, { status: 500 });
@@ -69,11 +73,17 @@ export async function DELETE(
   _request: Request,
   context: { params: Promise<{ id: string }> },
 ): Promise<Response> {
+  const project = await currentProject().catch(asErrorResponse);
+  if (project instanceof Response) return project;
+
   const { id } = await context.params;
-  const project = await loadProject();
-  const { error } = await serviceClient().from("document").delete().eq("id", id);
+  const { error } = await serviceClient()
+    .from("document")
+    .delete()
+    .eq("id", id)
+    .eq("project_id", project.id);
   if (error) return corsJson({ error: error.message }, { status: 500 });
   // The row is gone either way; a leftover file in the bucket is not worth failing the call.
-  if (project) await removeOriginals(project.id, id).catch(() => undefined);
+  await removeOriginals(project.id, id).catch(() => undefined);
   return corsJson({ ok: true });
 }

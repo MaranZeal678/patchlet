@@ -155,7 +155,7 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
   const [docs, ui, repository] = await Promise.all([
     probeDocs(`${question} ${understanding.feature}`, projectId),
     Promise.resolve(probeInterface(`${question} ${understanding.feature}`, page)),
-    probeRepository(understanding.feature, input.repoFullName, input.defaultBranch),
+    probeRepository(projectId, understanding.feature, input.repoFullName, input.defaultBranch),
   ]);
   const probes: ProbeResult[] = [docs, ui, repository];
   for (const result of probes) {

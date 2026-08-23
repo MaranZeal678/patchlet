@@ -139,6 +139,7 @@ const SOURCE = /\.(ts|tsx|js|jsx|css|md)$/;
 
 /** Implementation: is there code for this in the connected repository? */
 export async function probeRepository(
+  projectId: string,
   question: string,
   repoFullName: string | null,
   branch: string,
@@ -164,7 +165,7 @@ export async function probeRepository(
         `https://api.github.com/repos/${repoFullName}/git/trees/${branch}?recursive=1`,
         {
           headers: {
-            authorization: `Bearer ${await activeGithubToken()}`,
+            authorization: `Bearer ${await activeGithubToken(projectId)}`,
             accept: "application/vnd.github+json",
           },
         },

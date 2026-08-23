@@ -6,7 +6,7 @@
  * reconnecting `EventSource` resumes exactly where it stopped through `Last-Event-ID`.
  */
 import { withCors, preflight } from "@/lib/cors";
-import { loadProject } from "@/lib/console/project";
+import { asErrorResponse, currentProject } from "@/lib/console/current";
 import { fetchTrace, readFilters } from "@/lib/console/traceQuery";
 
 export const runtime = "nodejs";
@@ -23,10 +23,8 @@ export function OPTIONS(): Response {
 }
 
 export async function GET(request: Request): Promise<Response> {
-  const project = await loadProject();
-  if (!project) {
-    return withCors(new Response("no project", { status: 404 }));
-  }
+  const project = await currentProject().catch(asErrorResponse);
+  if (project instanceof Response) return project;
 
   const url = new URL(request.url);
   const filters = readFilters(url, project.id);

@@ -1,18 +1,16 @@
 import { NextResponse } from "next/server";
-import { projectSlug } from "@/lib/env";
 import { listModels } from "@/lib/mistral";
 import { serviceClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
+/** Can the schema be read at all. It says nothing about any particular project. */
 async function checkDatabase(): Promise<boolean> {
   try {
-    const { data, error } = await serviceClient()
+    const { error } = await serviceClient()
       .from("project")
-      .select("id")
-      .eq("slug", projectSlug())
-      .maybeSingle();
-    return !error && data !== null;
+      .select("id", { count: "exact", head: true });
+    return !error;
   } catch {
     return false;
   }

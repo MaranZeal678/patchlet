@@ -1,6 +1,6 @@
 /** Finishes the GitHub link: verify the state, exchange the code, store the account and its token. */
 import { NextResponse } from "next/server";
-import { loadProject } from "@/lib/console/project";
+import { currentProjectOrNull } from "@/lib/console/current";
 import { saveConnection } from "@/lib/github/connection";
 import { STATE_COOKIE, exchangeCode, fetchGithubUser } from "@/lib/github/oauth";
 import { verifyState } from "@/lib/github/secret";
@@ -33,8 +33,8 @@ export async function GET(request: Request): Promise<Response> {
     return back(request, "state");
   }
 
-  const project = await loadProject();
-  if (!project) return back(request, "unseeded");
+  const project = await currentProjectOrNull();
+  if (!project) return back(request, "signedout");
 
   try {
     const accessToken = await exchangeCode(code);

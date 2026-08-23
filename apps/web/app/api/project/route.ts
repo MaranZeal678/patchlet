@@ -1,7 +1,8 @@
-/** The single project the console manages, and the one form that edits it. */
+/** The caller's project, and the one form that edits it. */
 import { corsJson, preflight } from "@/lib/cors";
 import { getRepository } from "@/lib/github";
-import { PROJECT_COLUMNS, embedSnippet, loadProject, toProject, widgetUrl } from "@/lib/console/project";
+import { asErrorResponse, currentProject } from "@/lib/console/current";
+import { PROJECT_COLUMNS, embedSnippet, toProject, widgetUrl } from "@/lib/console/project";
 import { loadCounts, loadWorkerStatus } from "@/lib/console/counts";
 import { serviceClient } from "@/lib/supabase";
 
@@ -13,10 +14,9 @@ export function OPTIONS(): Response {
 }
 
 export async function GET(): Promise<Response> {
-  const project = await loadProject();
-  if (!project) {
-    return corsJson({ error: "no project has been seeded yet" }, { status: 404 });
-  }
+  const project = await currentProject().catch(asErrorResponse);
+  if (project instanceof Response) return project;
+
   const [counts, worker] = await Promise.all([
     loadCounts(project.id),
     loadWorkerStatus(project.id),
@@ -39,15 +39,17 @@ type Patch = {
 const REPO_PATTERN = /^[\w.-]+\/[\w.-]+$/;
 
 export async function PATCH(request: Request): Promise<Response> {
-  const project = await loadProject();
-  if (!project) {
-    return corsJson({ error: "no project has been seeded yet" }, { status: 404 });
-  }
+  const project = await currentProject().catch(asErrorResponse);
+  if (project instanceof Response) return project;
 
   const body = (await request.json().catch(() => ({}))) as Patch;
   const update: Record<string, unknown> = {};
 
-  if (body.repoFullName !== undefined) {
+  // `null` unbinds the repository; a string binds one, once the token proves it can read it.
+  if (body.repoFullName === null) {
+    update.repo_full_name = null;
+    update.repo_default_branch = null;
+  } else if (body.repoFullName !== undefined) {
     if (typeof body.repoFullName !== "string" || !REPO_PATTERN.test(body.repoFullName.trim())) {
       return corsJson({ error: "repoFullName must look like owner/name" }, { status: 400 });
     }
@@ -55,7 +57,7 @@ export async function PATCH(request: Request): Promise<Response> {
     // The bind is only worth writing if the token can actually reach the repository.
     let repository;
     try {
-      repository = await getRepository(fullName);
+      repository = await getRepository(project.id, fullName);
     } catch (error) {
       return corsJson({ error: (error as Error).message }, { status: 502 });
     }

@@ -1,11 +1,10 @@
 /**
- * The GitHub account linked to the project, and the token the agent and the console use.
+ * The GitHub account linked to a project, and the token the agent and the console use for it.
  *
- * The link lives on the project row rather than on the user, because the console manages a single
- * project: whoever links their account links it for that project.
+ * The link lives on the project row: an account owns one project, so linking a GitHub account
+ * links it for that project and for nothing else.
  */
 import { githubToken } from "@/lib/env";
-import { loadProject } from "@/lib/console/project";
 import { serviceClient } from "@/lib/supabase";
 import { decryptToken, encryptToken } from "./secret";
 
@@ -40,23 +39,21 @@ export async function clearConnection(projectId: string): Promise<void> {
   if (error) throw new Error(`The GitHub connection could not be cleared. ${error.message}`);
 }
 
-/** The linked user's token, or null when nobody has linked an account. */
-export async function linkedToken(): Promise<string | null> {
-  const project = await loadProject();
-  if (!project) return null;
+/** The linked user's token, or null when nobody has linked an account to this project. */
+export async function linkedToken(projectId: string): Promise<string | null> {
   const { data } = await serviceClient()
     .from("project")
     .select("github_token")
-    .eq("id", project.id)
+    .eq("id", projectId)
     .maybeSingle();
   const stored = (data as { github_token?: string | null } | null)?.github_token;
   return stored ? decryptToken(stored) : null;
 }
 
 /**
- * The token every GitHub call should use: the linked user's when there is one, the server
+ * The token every GitHub call should use: the project's linked token when there is one, the server
  * credential otherwise. This is the one place that decides.
  */
-export async function activeGithubToken(): Promise<string> {
-  return (await linkedToken()) ?? githubToken();
+export async function activeGithubToken(projectId: string): Promise<string> {
+  return (await linkedToken(projectId)) ?? githubToken();
 }

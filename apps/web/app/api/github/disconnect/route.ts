@@ -1,6 +1,6 @@
 /** Unlinks the GitHub account. The repository binding stays, so the agent keeps reading it. */
 import { corsJson, preflight } from "@/lib/cors";
-import { loadProject } from "@/lib/console/project";
+import { asErrorResponse, currentProject } from "@/lib/console/current";
 import { clearConnection } from "@/lib/github/connection";
 
 export const runtime = "nodejs";
@@ -11,8 +11,8 @@ export function OPTIONS(): Response {
 }
 
 export async function POST(): Promise<Response> {
-  const project = await loadProject();
-  if (!project) return corsJson({ error: "no project has been seeded yet" }, { status: 404 });
+  const project = await currentProject().catch(asErrorResponse);
+  if (project instanceof Response) return project;
 
   try {
     await clearConnection(project.id);

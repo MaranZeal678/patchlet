@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { ConsoleNav } from "@/components/console/ConsoleNav";
 import { currentAccount } from "@/lib/auth/server";
-import { loadProject } from "@/lib/console/project";
+import { ensureProject } from "@/lib/console/provision";
 
 export default async function ConsoleLayout({ children }: { children: React.ReactNode }) {
   // The middleware already turns anonymous visitors away; this is the belt to its braces, and it
@@ -9,14 +9,14 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
   const account = await currentAccount();
   if (!account) redirect("/signin");
 
-  const project = await loadProject();
+  const project = await ensureProject(account);
 
   return (
     <div className="app-shell">
       <ConsoleNav
         email={account.email}
         company={account.company}
-        githubLogin={project?.githubLogin ?? null}
+        githubLogin={project.githubLogin}
       />
       <main className="console-page">{children}</main>
     </div>

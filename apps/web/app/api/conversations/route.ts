@@ -1,7 +1,7 @@
 /** Recent conversations with their outcome, for the Conversations and Activity pages. */
 import { corsJson, preflight } from "@/lib/cors";
 import { isConversationOutcome } from "@/lib/agent/outcome";
-import { loadProject } from "@/lib/console/project";
+import { asErrorResponse, currentProject } from "@/lib/console/current";
 import { loadConversationSummaries, loadOutcomeCounts } from "@/lib/console/conversations";
 
 export const runtime = "nodejs";
@@ -12,13 +12,8 @@ export function OPTIONS(): Response {
 }
 
 export async function GET(request: Request): Promise<Response> {
-  const project = await loadProject();
-  if (!project) {
-    return corsJson({
-      conversations: [],
-      counts: { all: 0, solved: 0, product_bug: 0, missing_feature: 0, unresolved: 0 },
-    });
-  }
+  const project = await currentProject().catch(asErrorResponse);
+  if (project instanceof Response) return project;
 
   const params = new URL(request.url).searchParams;
   const requested = Number(params.get("limit") ?? "60");
