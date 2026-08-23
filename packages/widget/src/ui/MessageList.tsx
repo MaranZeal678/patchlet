@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { AbsenceCard } from './AbsenceCard';
 import { AnswerCard } from './AnswerCard';
-import { ProbeStrip } from './ProbeStrip';
 import type { Turn } from './model';
 
 export function MessageList({
@@ -70,7 +69,6 @@ function TurnView({
         <p>{turn.question}</p>
       </div>
 
-      {!answered && !turn.error && <ProbeStrip probes={turn.probes} />}
 
       {turn.error && (
         <div class="pl-msg pl-msg--agent">

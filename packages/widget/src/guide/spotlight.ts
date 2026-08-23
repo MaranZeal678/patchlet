@@ -64,6 +64,7 @@ export class Spotlight {
     this.counter.textContent = `Step ${view.index + 1} of ${view.total}`;
     this.text.textContent = view.caption;
     this.advance.textContent = view.isLast ? 'Done' : 'Next';
+    this.advance.hidden = true;
     this.root.classList.toggle('pl-spot--busy', Boolean(view.busy));
     if (!this.open) {
       this.open = true;
@@ -171,12 +172,13 @@ function build() {
   const stop = document.createElement('button');
   stop.type = 'button';
   stop.className = 'pl-btn pl-btn--quiet';
-  stop.textContent = 'Stop';
+  stop.textContent = 'Skip';
 
   const advance = document.createElement('button');
   advance.type = 'button';
   advance.className = 'pl-btn pl-btn--accent';
   advance.textContent = 'Next';
+  advance.hidden = true;
 
   actions.append(stop, advance);
   bubble.append(counter, text, actions);
