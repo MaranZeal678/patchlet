@@ -31,10 +31,8 @@ export function ConsoleNav({ email, company, githubLogin }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const navRef = useRef<HTMLDivElement | null>(null);
 
-  // The compact menu is a popover, so it closes the way every popover does: on a click outside,
-  // on Escape, and as soon as the route it navigated to arrives.
-  useEffect(() => setMenuOpen(false), [pathname]);
-
+  // The compact menu is a popover, so it closes the way every popover does: on a click outside
+  // and on Escape. Picking a tab closes it through the nav's own click handler below.
   useEffect(() => {
     if (!menuOpen) return;
     function onPointerDown(event: MouseEvent) {
@@ -74,6 +72,7 @@ export function ConsoleNav({ email, company, githubLogin }: Props) {
           id="console-nav"
           className={`app-nav${menuOpen ? " is-open" : ""}`}
           aria-label="Console"
+          onClick={() => setMenuOpen(false)}
         >
           {LINKS.map((link) => {
             const active = pathname === link.href;

@@ -3,7 +3,12 @@
  * transcript behind any one of them.
  */
 import type { FeatureRequest, ProbeResult, Step, Verdict } from "@patchlet/shared";
-import { CONVERSATION_OUTCOMES, type ConversationOutcome } from "@/lib/agent/outcome";
+import {
+  CONVERSATION_OUTCOMES,
+  outcomeFromTurns,
+  type ConversationOutcome,
+  type OutcomeEvidence,
+} from "@/lib/agent/outcome";
 import { loadVisitorFacts } from "@/lib/agent/memory";
 import { serviceClient } from "@/lib/supabase";
 
@@ -98,6 +103,15 @@ function toTurn(row: Record<string, unknown>): ConversationTurn {
   };
 }
 
+/** The two fields the outcome rule reads, from a message row of either shape. */
+function toEvidence(row: Record<string, unknown>): OutcomeEvidence {
+  return {
+    role: String(row.role),
+    steps: (row.steps ?? null) as Step[] | null,
+    verdict: (row.verdict ?? null) as Verdict | null,
+  };
+}
+
 /** Wall-clock time between the first and last message, or null when there is only one. */
 function spanMs(times: string[]): number | null {
   const first0 = times[0];
@@ -140,7 +154,9 @@ export async function loadConversationSummaries(
     .from("conversation")
     .select(CONVERSATION_COLUMNS)
     .eq("project_id", projectId);
-  if (options.outcome) query = query.eq("outcome", options.outcome);
+  // Rows that never had an outcome written back still belong to whichever filter their
+  // transcript puts them in, so they have to come back from the query and be sorted below.
+  if (options.outcome) query = query.or(`outcome.eq.${options.outcome},outcome.is.null`);
 
   const { data: rows, error } = await query.order("created_at", { ascending: false }).limit(limit);
   if (error) throw new Error(error.message);
@@ -148,17 +164,19 @@ export async function loadConversationSummaries(
   const ids = (rows ?? []).map((row) => String(row.id));
   const questions = new Map<string, string>();
   const times = new Map<string, string[]>();
+  const evidence = new Map<string, OutcomeEvidence[]>();
 
   if (ids.length > 0) {
     const { data: messages } = await db
       .from("message")
-      .select("conversation_id, role, content, created_at")
+      .select("conversation_id, role, content, steps, verdict, created_at")
       .in("conversation_id", ids)
       .order("created_at", { ascending: true });
 
     for (const message of messages ?? []) {
       const key = String(message.conversation_id);
       times.set(key, [...(times.get(key) ?? []), String(message.created_at)]);
+      evidence.set(key, [...(evidence.get(key) ?? []), toEvidence(message as Record<string, unknown>)]);
       if (message.role === "user" && !questions.has(key)) {
         questions.set(key, String(message.content));
       }
@@ -167,12 +185,12 @@ export async function loadConversationSummaries(
 
   const escalations = await escalationsByConversation(ids);
 
-  return (rows ?? []).map((row) => {
+  const summaries = (rows ?? []).map((row) => {
     const id = String(row.id);
     const stamps = times.get(id) ?? [];
     return {
       id,
-      outcome: text(row.outcome),
+      outcome: text(row.outcome) ?? outcomeFromTurns(evidence.get(id) ?? []),
       summary: text(row.summary),
       evidence: lines(row.evidence),
       nextSteps: lines(row.next_steps),
@@ -187,9 +205,19 @@ export async function loadConversationSummaries(
       escalation: escalations.get(id) ?? null,
     };
   });
+
+  return options.outcome
+    ? summaries.filter((summary) => summary.outcome === options.outcome)
+    : summaries;
 }
 
-/** How many conversations sit under each filter pill. */
+/**
+ * How many conversations sit under each filter pill.
+ *
+ * The stored column answers most of it in one head count each. The rows without one are read
+ * out and put through the same rule the list uses, so a pill can never disagree with the
+ * badge on the card it filters to.
+ */
 export async function loadOutcomeCounts(projectId: string): Promise<OutcomeCounts> {
   const db = serviceClient();
   const countFor = async (outcome?: ConversationOutcome): Promise<number> => {
@@ -202,16 +230,51 @@ export async function loadOutcomeCounts(projectId: string): Promise<OutcomeCount
     return count ?? 0;
   };
 
-  const [all, ...perOutcome] = await Promise.all([
+  const [all, perOutcome, derived] = await Promise.all([
     countFor(),
-    ...CONVERSATION_OUTCOMES.map((outcome) => countFor(outcome)),
+    Promise.all(CONVERSATION_OUTCOMES.map((outcome) => countFor(outcome))),
+    countDerivedOutcomes(projectId),
   ]);
 
   const counts = { all } as OutcomeCounts;
   CONVERSATION_OUTCOMES.forEach((outcome, index) => {
-    counts[outcome] = perOutcome[index] ?? 0;
+    counts[outcome] = (perOutcome[index] ?? 0) + (derived[outcome] ?? 0);
   });
   return counts;
+}
+
+/** The same tally for the rows the agent never wrote an outcome back to. */
+async function countDerivedOutcomes(
+  projectId: string,
+): Promise<Partial<Record<ConversationOutcome, number>>> {
+  const db = serviceClient();
+  const { data: rows } = await db
+    .from("conversation")
+    .select("id")
+    .eq("project_id", projectId)
+    .is("outcome", null);
+
+  const ids = (rows ?? []).map((row) => String(row.id));
+  if (ids.length === 0) return {};
+
+  const { data: messages } = await db
+    .from("message")
+    .select("conversation_id, role, steps, verdict")
+    .in("conversation_id", ids)
+    .order("created_at", { ascending: true });
+
+  const evidence = new Map<string, OutcomeEvidence[]>();
+  for (const message of messages ?? []) {
+    const key = String(message.conversation_id);
+    evidence.set(key, [...(evidence.get(key) ?? []), toEvidence(message as Record<string, unknown>)]);
+  }
+
+  const tally: Partial<Record<ConversationOutcome, number>> = {};
+  for (const id of ids) {
+    const outcome = outcomeFromTurns(evidence.get(id) ?? []);
+    if (outcome) tally[outcome] = (tally[outcome] ?? 0) + 1;
+  }
+  return tally;
 }
 
 /** One conversation with every message in order, and the escalation it produced. */
@@ -240,7 +303,7 @@ export async function loadConversationDetail(
 
   return {
     id: String(row.id),
-    outcome: text(row.outcome),
+    outcome: text(row.outcome) ?? outcomeFromTurns(turns),
     summary: text(row.summary),
     evidence: lines(row.evidence),
     nextSteps: lines(row.next_steps),

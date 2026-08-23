@@ -47,6 +47,29 @@ export function reconcileOutcome(
   return suggested === "product_bug" ? "product_bug" : derived;
 }
 
+/** What one stored turn carries of the two things the mechanical rule reads. */
+export type OutcomeEvidence = {
+  role: string;
+  steps: Step[] | null;
+  verdict: Pick<Verdict, "outcome"> | null;
+};
+
+/**
+ * The outcome of a conversation whose row never had one written back.
+ *
+ * A turn is only ever stored once the agent has answered, so the same rule applies to the
+ * transcript: guidance means solved, a confirmed absence means the feature is missing, and
+ * anything else is an answer nobody stood behind. Null means the agent has not replied yet,
+ * which is the only state the console should call in progress. It never returns a product bug,
+ * because that judgement lives on the row and a row without one never had it made.
+ */
+export function outcomeFromTurns(turns: readonly OutcomeEvidence[]): ConversationOutcome | null {
+  const replies = turns.filter((turn) => turn.role === "assistant");
+  const last = replies[replies.length - 1];
+  if (!last) return null;
+  return deriveOutcome({ steps: last.steps, verdict: { outcome: last.verdict?.outcome ?? "hedge" } });
+}
+
 const LABELS: Record<ConversationOutcome, string> = {
   solved: "Solved",
   product_bug: "Product bug",
