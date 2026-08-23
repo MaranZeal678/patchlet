@@ -14,6 +14,7 @@ import type {
 import { chatJson } from "../mistral";
 import { serviceClient } from "../supabase";
 import { emitTrace } from "../trace";
+import { loadVisitorFacts, rememberFromTurn } from "./memory";
 import { probeDocs, probeInterface, probeRepository } from "./probes";
 import { closeConversation } from "./summary";
 
@@ -25,6 +26,8 @@ export type TurnInput = {
   page: PageContext;
   conversationId?: string;
   continueFrom?: number;
+  /** Random id from the visitor's browser; the key of everything the agent remembers. */
+  visitorId?: string;
 };
 
 const UNDERSTANDING_SCHEMA = {
@@ -83,6 +86,12 @@ const REQUEST_SCHEMA = {
   additionalProperties: false,
 };
 
+/** The remembered facts as a prompt block, empty when this is a first visit. */
+function memoryBlock(memory: string[]): string {
+  if (memory.length === 0) return "";
+  return `\n\nWhat we know about this visitor:\n${memory.map((fact) => `- ${fact}`).join("\n")}`;
+}
+
 function affordanceList(page: PageContext): string {
   return page.affordances
     .map((a) => `${a.id}: ${a.role} "${a.name}"${a.landmark ? ` in ${a.landmark}` : ""}`)
@@ -98,7 +107,12 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
   if (!conversationId) {
     const { data } = await db
       .from("conversation")
-      .insert({ project_id: projectId, page_url: page.url, page_title: page.title })
+      .insert({
+        project_id: projectId,
+        page_url: page.url,
+        page_title: page.title,
+        visitor_id: input.visitorId ?? null,
+      })
       .select("id")
       .single();
     conversationId = (data?.id as string) ?? "";
@@ -125,7 +139,14 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
     UNDERSTANDING_SCHEMA,
     { name: "understanding" },
   );
-  yield { type: "understanding", feature: understanding.feature, intent: understanding.intent };
+  // What the agent already knows about this person, so the answer can speak to their situation.
+  const memory = await loadVisitorFacts(projectId, input.visitorId);
+  yield {
+    type: "understanding",
+    feature: understanding.feature,
+    intent: understanding.intent,
+    memory,
+  };
 
   // 3. Three independent checks, run together so the slowest bounds the turn.
   for (const probe of ["docs", "interface", "repository"] as const) {
@@ -208,11 +229,11 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
         {
           role: "system",
           content:
-            "You are a support agent embedded in a web page. Answer the question in one or two short sentences, then give the steps the user takes on the page in front of them. Every step target MUST be one of the listed element ids, exactly as written. Order the steps so the first one is a control that is on the page right now: if the flow continues inside a menu or dialog that is not open yet, make the first step the control that opens it and stop there. Never invent an id. Use at most 5 steps. Each caption is at most 12 words and starts with a verb. JSON only.",
+            "You are a support agent embedded in a web page. Answer the question in one or two short sentences, then give the steps the user takes on the page in front of them. When the notes say something about this visitor, use it: tailor the answer to their role and what they are working on, and never ask again for something you already know. Every step target MUST be one of the listed element ids, exactly as written. Order the steps so the first one is a control that is on the page right now: if the flow continues inside a menu or dialog that is not open yet, make the first step the control that opens it and stop there. Never invent an id. Use at most 5 steps. Each caption is at most 12 words and starts with a verb. JSON only.",
         },
         {
           role: "user",
-          content: `Question: ${question}\n\nDocumentation:\n${grounding}\n\nElements on this page:\n${affordanceList(page)}`,
+          content: `Question: ${question}${memoryBlock(memory)}\n\nDocumentation:\n${grounding}\n\nElements on this page:\n${affordanceList(page)}`,
         },
       ],
       PLAN_SCHEMA,
@@ -237,9 +258,9 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
         {
           role: "system",
           content:
-            "Turn one support request into a feature request for the developers. The quote must be copied exactly from the user's message. JSON only.",
+            "Turn one support request into a feature request for the developers. The quote must be copied exactly from the user's message. Any notes about the visitor are context for the rationale, never part of the quote. JSON only.",
         },
-        { role: "user", content: question },
+        { role: "user", content: `${question}${memoryBlock(memory)}` },
       ],
       REQUEST_SCHEMA,
       { name: "feature_request" },
@@ -282,7 +303,36 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
     messageId: (assistantMessage?.id as string) ?? messageId,
   };
 
-  // 6. Record how this ended. The user already has the answer; this is only for the console.
+  // 6. Remember anything durable the visitor said about themselves, for their next visit.
+  try {
+    const learned = await rememberFromTurn({
+      projectId,
+      visitorId: input.visitorId,
+      conversationId,
+      question,
+      answer: text,
+      known: memory,
+    });
+    if (learned.length > 0) {
+      await emitTrace({
+        projectId,
+        conversationId,
+        kind: "model",
+        title: "Remembered about this visitor",
+        detail: {
+          model: MODELS.understand,
+          purpose: "keep durable facts about the visitor",
+          output_summary: learned.join(" "),
+          facts: learned,
+        },
+        source: "agent",
+      });
+    }
+  } catch {
+    // Memory is a convenience. A failed extraction must never cost the user their answer.
+  }
+
+  // 7. Record how this ended. The user already has the answer; this is only for the console.
   try {
     await closeConversation({ conversationId, question, answer: text, steps, verdict });
   } catch {

@@ -66,6 +66,12 @@ function TurnView({
         <p>{turn.question}</p>
       </div>
 
+      {turn.memory && turn.memory.length > 0 && (
+        <p class="pl-recall" title={turn.memory.join(' ')}>
+          Welcome back. {turn.memory[turn.memory.length - 1]}
+        </p>
+      )}
+
 
       {turn.error && (
         <div class="pl-msg pl-msg--agent">

@@ -4,6 +4,7 @@
  */
 import type { FeatureRequest, ProbeResult, Step, Verdict } from "@patchlet/shared";
 import { CONVERSATION_OUTCOMES, type ConversationOutcome } from "@/lib/agent/outcome";
+import { loadVisitorFacts } from "@/lib/agent/memory";
 import { serviceClient } from "@/lib/supabase";
 
 export type ConversationEscalation = {
@@ -39,7 +40,11 @@ export type ConversationTurn = {
   featureRequest: FeatureRequest | null;
 };
 
-export type ConversationDetail = ConversationSummary & { messages: ConversationTurn[] };
+export type ConversationDetail = ConversationSummary & {
+  messages: ConversationTurn[];
+  /** What the agent remembers about the visitor behind this conversation, oldest first. */
+  memory: string[];
+};
 
 export type OutcomeCounts = { all: number } & Record<ConversationOutcome, number>;
 
@@ -198,7 +203,7 @@ export async function loadConversationDetail(
   const db = serviceClient();
   const { data: row } = await db
     .from("conversation")
-    .select("id, page_url, page_title, outcome, summary, created_at")
+    .select("id, page_url, page_title, outcome, summary, visitor_id, created_at")
     .eq("project_id", projectId)
     .eq("id", id)
     .maybeSingle();
@@ -212,6 +217,7 @@ export async function loadConversationDetail(
 
   const turns = (messages ?? []).map((message) => toTurn(message as Record<string, unknown>));
   const escalation = (await escalationsByConversation([id])).get(id) ?? null;
+  const memory = await loadVisitorFacts(projectId, text(row.visitor_id));
 
   return {
     id: String(row.id),
@@ -225,5 +231,6 @@ export async function loadConversationDetail(
     durationMs: spanMs(turns.map((turn) => turn.createdAt)),
     escalation,
     messages: turns,
+    memory,
   };
 }

@@ -1136,6 +1136,25 @@ body {
   font-weight: 800;
 }
 
+/* Durable facts the agent kept about the visitor behind this transcript. */
+.memory-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.memory-list li {
+  padding: 10px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: rgba(255, 253, 247, 0.7);
+  color: var(--ink);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
 .request-card {
   margin-top: 12px;
   padding: 14px 16px;

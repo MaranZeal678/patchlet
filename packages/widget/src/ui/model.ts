@@ -9,6 +9,8 @@ export type Turn = {
   question: string;
   probes: Record<ProbeName, ProbeState>;
   feature?: string;
+  /** What the agent already knew about this visitor when the turn started. */
+  memory?: string[];
   verdict?: Verdict;
   answer?: Answer;
   messageId?: string;

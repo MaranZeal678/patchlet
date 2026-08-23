@@ -89,6 +89,7 @@ async function chat(request: IncomingMessage, response: ServerResponse): Promise
     type: 'understanding',
     feature: wantsDarkMode ? 'dark mode' : wantsUsername ? 'changing the username' : question.slice(0, 40),
     intent: wantsDarkMode ? 'feature' : 'howto',
+    memory: ['The visitor is the owner of the workspace.'],
   });
 
   const probes = [

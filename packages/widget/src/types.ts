@@ -53,7 +53,7 @@ export type EscalationOffer = { offered: true; request: FeatureRequest } | { off
 
 export type ChatEvent =
   | { type: 'conversation'; conversationId: string; messageId: string }
-  | { type: 'understanding'; feature: string; intent: 'howto' | 'feature' | 'other' }
+  | { type: 'understanding'; feature: string; intent: 'howto' | 'feature' | 'other'; memory: string[] }
   | { type: 'probe'; probe: ProbeName; status: 'running' }
   | { type: 'probe'; probe: ProbeName; status: 'done'; result: ProbeResult }
   | { type: 'verdict'; verdict: Verdict }
@@ -92,6 +92,8 @@ export type EscalationView = {
 export type ChatRequest = {
   key: string;
   conversationId?: string;
+  /** Random id kept in this browser, the key of what the agent remembers. */
+  visitorId?: string;
   question: string;
   page: PageContext;
   continueFrom?: number;

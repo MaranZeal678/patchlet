@@ -81,6 +81,17 @@ export function ConversationDetailPanel({
                 </ol>
               )}
             </section>
+
+            {detail.memory.length > 0 ? (
+              <section className="detail-section">
+                <h3 className="detail-section__title">What the agent remembers</h3>
+                <ul className="memory-list">
+                  {detail.memory.map((fact) => (
+                    <li key={fact}>{fact}</li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
           </>
         )}
       </div>
