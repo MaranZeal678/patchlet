@@ -59,6 +59,40 @@ export function onDomSettle(callback: () => void, settleMs = 300, target: Node =
   };
 }
 
+/**
+ * Resolves once the DOM has been quiet for `quietMs`, or after `maxMs` whichever
+ * comes first. A dialog that opens on a click renders over several frames, so a
+ * scan taken the instant the click lands misses the fields inside it.
+ */
+export function domSettled(quietMs = 300, maxMs = 1500, target: Node | null = document.body): Promise<void> {
+  return new Promise((resolve) => {
+    let done = false;
+    let quiet: ReturnType<typeof setTimeout> | undefined;
+    let cap: ReturnType<typeof setTimeout> | undefined;
+    const observer =
+      typeof MutationObserver === 'undefined' || !target ? null : new MutationObserver(() => restart());
+
+    const finish = () => {
+      if (done) return;
+      done = true;
+      if (quiet) clearTimeout(quiet);
+      if (cap) clearTimeout(cap);
+      observer?.disconnect();
+      resolve();
+    };
+    const restart = () => {
+      if (quiet) clearTimeout(quiet);
+      quiet = setTimeout(finish, quietMs);
+    };
+
+    if (observer && target) {
+      observer.observe(target, { childList: true, subtree: true, attributes: true });
+      cap = setTimeout(finish, maxMs);
+    }
+    restart();
+  });
+}
+
 /** Both signals, one callback, already debounced. */
 export function watchPage(callback: () => void, settleMs = 300): Unsubscribe {
   const stopNav = onNavigate(() => setTimeout(callback, settleMs));

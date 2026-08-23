@@ -29,11 +29,20 @@ function expand(query: string): string {
   return extra.length ? `${query} ${extra.join(" ")}` : query;
 }
 
-/** Documentation: cosine search over the ingested chunks, damped by OCR confidence. */
-export async function probeDocs(question: string, projectId: string): Promise<ProbeResult> {
+/**
+ * Documentation: cosine search over the ingested chunks, damped by OCR confidence.
+ *
+ * The embedding can be handed in already in flight: it only depends on the question, so the
+ * caller starts it next to the understanding call rather than after it.
+ */
+export async function probeDocs(
+  question: string,
+  projectId: string,
+  embedding?: Promise<number[]> | number[],
+): Promise<ProbeResult> {
   const started = Date.now();
   try {
-    const [vector] = await embed([question]);
+    const vector = embedding ? await embedding : (await embed([question]))[0];
     const { data, error } = await serviceClient().rpc("match_chunks", {
       query_embedding: vector,
       match_count: 6,

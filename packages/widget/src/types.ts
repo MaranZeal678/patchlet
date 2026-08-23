@@ -11,6 +11,7 @@ export type Affordance = {
   href?: string;
   visible: boolean;
   disabled?: boolean;
+  state?: string;
 };
 
 export type PageContext = { url: string; title: string; affordances: Affordance[] };

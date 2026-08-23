@@ -61,6 +61,7 @@ export function scanAffordances(options: ScanOptions = {}): ScanResult {
     if (candidate.landmark) affordance.landmark = candidate.landmark;
     if (candidate.href) affordance.href = candidate.href;
     if (candidate.disabled) affordance.disabled = true;
+    if (candidate.state) affordance.state = candidate.state;
     return affordance;
   });
 
@@ -117,7 +118,30 @@ function describe(element: Element): Candidate {
     href,
     visible: isVisible(element),
     disabled: isDisabled(element),
+    state: stateOf(element),
   };
+}
+
+/**
+ * Whether the control is already doing the thing it offers. A tab that is
+ * showing its panel and a menu that is already open are not steps, and without
+ * this the plan cheerfully tells the user to click something already active.
+ */
+export function stateOf(element: Element): string | undefined {
+  const states: string[] = [];
+  if (element.getAttribute('aria-selected') === 'true' || element.getAttribute('aria-current') === 'page') {
+    states.push('selected');
+  }
+  if (element.getAttribute('aria-expanded') === 'true') states.push('expanded');
+  const checked = element.getAttribute('aria-checked') ?? (isChecked(element) ? 'true' : null);
+  if (checked === 'true') states.push('checked');
+  return states.length ? states.join(', ') : undefined;
+}
+
+function isChecked(element: Element): boolean {
+  return element instanceof HTMLInputElement && (element.type === 'checkbox' || element.type === 'radio')
+    ? element.checked
+    : false;
 }
 
 function safeAccessibleName(element: Element): string {

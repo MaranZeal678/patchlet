@@ -76,3 +76,23 @@ describe('scanAffordances', () => {
     expect(page.affordances.some((affordance) => affordance.name === 'Open support')).toBe(false);
   });
 });
+
+describe('stateOf', () => {
+  it('reports a tab that is already showing its panel', () => {
+    document.body.innerHTML = `
+      <div role="dialog" aria-label="Profile">
+        <button role="tab" aria-selected="true">Profile</button>
+        <button role="tab" aria-selected="false">Preferences</button>
+      </div>`;
+    const { page } = scanAffordances({ question: 'profile' });
+    const byName = (name: string) => page.affordances.find((affordance) => affordance.name === name);
+    expect(byName('Profile')?.state).toBe('selected');
+    expect(byName('Preferences')?.state).toBeUndefined();
+  });
+
+  it('reports a menu button that is already open', () => {
+    document.body.innerHTML = '<button aria-expanded="true">Account</button>';
+    const { page } = scanAffordances({ question: 'account' });
+    expect(page.affordances[0]?.state).toBe('expanded');
+  });
+});

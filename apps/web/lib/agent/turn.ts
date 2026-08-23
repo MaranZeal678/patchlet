@@ -12,10 +12,11 @@ import type {
   Step,
   Verdict,
 } from "@patchlet/shared";
-import { chatJson } from "../mistral";
+import { chatJson, embed } from "../mistral";
 import { serviceClient } from "../supabase";
 import { emitTrace } from "../trace";
 import { loadVisitorFacts, rememberFromTurn } from "./memory";
+import { affordanceList, dropRepeats } from "./page";
 import { probeDocs, probeInterface, probeRepository } from "./probes";
 import { closeConversation } from "./summary";
 
@@ -37,7 +38,6 @@ export type TurnInput = {
   question: string;
   page: PageContext;
   conversationId?: string;
-  continueFrom?: number;
   /** Random id from the visitor's browser; the key of everything the agent remembers. */
   visitorId?: string;
 };
@@ -104,12 +104,6 @@ function memoryBlock(memory: string[]): string {
   return `\n\nWhat we know about this visitor:\n${memory.map((fact) => `- ${fact}`).join("\n")}`;
 }
 
-function affordanceList(page: PageContext): string {
-  return page.affordances
-    .map((a) => `${a.id}: ${a.role} "${a.name}"${a.landmark ? ` in ${a.landmark}` : ""}`)
-    .join("\n");
-}
-
 export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
   const db = serviceClient();
   const { projectId, question, page } = input;
@@ -138,21 +132,47 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
   yield { type: "conversation", conversationId, messageId };
 
   // 2. Understand what the user is actually asking about.
-  const understanding = await chatJson<{ intent: "howto" | "feature" | "other"; feature: string }>(
-    MODELS.understand,
-    [
-      {
-        role: "system",
-        content:
-          "Read one support question. Name the product capability it is about in two or three words. Answer with JSON only.",
-      },
-      { role: "user", content: question },
-    ],
-    UNDERSTANDING_SCHEMA,
-    { name: "understanding" },
-  );
-  // What the agent already knows about this person, so the answer can speak to their situation.
-  const memory = await loadVisitorFacts(projectId, input.visitorId);
+  //
+  // The question embedding and the visitor's remembered facts depend on nothing the model is
+  // about to say, so all three run together and the slowest one bounds this stage.
+  const questionEmbedding = embed([question]).then(([vector]) => {
+    if (!vector) throw new Error("The embedding service returned nothing for the question");
+    return vector;
+  });
+  // Claimed here so a failure surfaces at the probe that uses it, not as an unhandled rejection.
+  questionEmbedding.catch(() => undefined);
+  const understandStarted = Date.now();
+  const [understanding, memory] = await Promise.all([
+    chatJson<{ intent: "howto" | "feature" | "other"; feature: string }>(
+      MODELS.understand,
+      [
+        {
+          role: "system",
+          content:
+            "Read one support question. Name the product capability it is about in two or three words. Answer with JSON only.",
+        },
+        { role: "user", content: question },
+      ],
+      UNDERSTANDING_SCHEMA,
+      { name: "understanding", maxTokens: 120 },
+    ),
+    // What the agent already knows about this person, so the answer can speak to their situation.
+    loadVisitorFacts(projectId, input.visitorId),
+  ]);
+  const understandMs = Date.now() - understandStarted;
+  void emitTrace({
+    projectId,
+    conversationId,
+    kind: "model",
+    title: "Understood the question",
+    detail: {
+      model: MODELS.understand,
+      purpose: "name the capability the question is about",
+      output_summary: understanding.feature,
+      latencyMs: understandMs,
+    },
+    source: "agent",
+  });
   yield {
     type: "understanding",
     feature: understanding.feature,
@@ -165,7 +185,7 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
     yield { type: "probe", probe, status: "running" };
   }
   const [docs, ui, repository] = await Promise.all([
-    probeDocs(`${question} ${understanding.feature}`, projectId),
+    probeDocs(`${question} ${understanding.feature}`, projectId, questionEmbedding),
     Promise.resolve(probeInterface(`${question} ${understanding.feature}`, page)),
     probeRepository(projectId, understanding.feature, input.repoFullName, input.defaultBranch),
   ]);
@@ -191,7 +211,9 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
     reasoning: probes.map((p) => p.summary).join(" "),
     feature: understanding.feature,
   };
+  let verdictMs: number | null = null;
   if (outcome === "absent") {
+    const verdictStarted = Date.now();
     const confirmed = await chatJson<{ exists: boolean; confidence: number; reasoning: string }>(
       MODELS.verdict,
       [
@@ -208,8 +230,9 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
         },
       ],
       VERDICT_SCHEMA,
-      { name: "verdict" },
+      { name: "verdict", maxTokens: 400 },
     );
+    verdictMs = Date.now() - verdictStarted;
     outcome = confirmed.exists ? "hedge" : "absent";
     verdict = {
       outcome,
@@ -224,7 +247,7 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
     conversationId,
     kind: "verdict",
     title: `Verdict: ${outcome}`,
-    detail: verdict,
+    detail: verdictMs === null ? verdict : { ...verdict, model: MODELS.verdict, latencyMs: verdictMs },
     source: "agent",
   });
 
@@ -233,10 +256,17 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
   let steps: Step[] | null = null;
   let request: FeatureRequest | null = null;
 
+  // The docs passages behind this answer, kept on the message so continuing the
+  // guidance later does not have to search for them again.
+  let grounding: unknown = null;
+
   if (outcome === "answer") {
-    const grounding = JSON.stringify(docs.evidence);
+    grounding = docs.evidence;
+    const planStarted = Date.now();
     const plan = await chatJson<{ answer: string; steps: Step[] }>(
-      MODELS.answer,
+      // The evidence is already gathered and the shape is fixed, so this is a small
+      // structured task. A faster model here is what keeps guidance feeling live.
+      MODELS.plan,
       [
         {
           role: "system",
@@ -245,25 +275,38 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
         },
         {
           role: "user",
-          content: `Question: ${question}${memoryBlock(memory)}\n\nDocumentation:\n${grounding}\n\nElements on this page:\n${affordanceList(page)}`,
+          content: `Question: ${question}${memoryBlock(memory)}\n\nDocumentation:\n${JSON.stringify(docs.evidence)}\n\nElements on this page:\n${affordanceList(page.affordances)}`,
         },
       ],
       PLAN_SCHEMA,
-      { name: "plan" },
+      { name: "plan", maxTokens: 600 },
     );
+    void emitTrace({
+      projectId,
+      conversationId,
+      kind: "model",
+      title: "Planned the answer and the steps",
+      detail: {
+        model: MODELS.plan,
+        purpose: "answer from the documentation and name the controls to point at",
+        output_summary: plan.answer,
+        latencyMs: Date.now() - planStarted,
+      },
+      source: "agent",
+    });
     text = plan.answer;
     // A flow often continues behind a menu that is still closed, so the later
     // targets do not exist yet. Guide as far as this page allows rather than
     // dropping the whole plan; the widget re-plans once the page changes.
     const known = new Set(page.affordances.map((a) => a.id));
     const reachable: Step[] = [];
-    for (const step of plan.steps ?? []) {
+    for (const step of dropRepeats(plan.steps ?? [])) {
       if (!known.has(step.target)) break;
       reachable.push(step);
     }
     steps = validatePlan(reachable, page.affordances);
-    if (typeof input.continueFrom === "number" && steps) steps = steps.slice(input.continueFrom);
   } else {
+    const draftStarted = Date.now();
     const drafted = await chatJson<FeatureRequest>(
       MODELS.answer,
       [
@@ -275,8 +318,21 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
         { role: "user", content: `${question}${memoryBlock(memory)}` },
       ],
       REQUEST_SCHEMA,
-      { name: "feature_request" },
+      { name: "feature_request", maxTokens: 600 },
     );
+    void emitTrace({
+      projectId,
+      conversationId,
+      kind: "model",
+      title: "Drafted the feature request",
+      detail: {
+        model: MODELS.answer,
+        purpose: "turn the question into something the developers can build",
+        output_summary: drafted.title,
+        latencyMs: Date.now() - draftStarted,
+      },
+      source: "agent",
+    });
     request = {
       ...drafted,
       quote: question.includes(drafted.quote.trim()) ? drafted.quote.trim() : question,
@@ -303,6 +359,7 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
       probes,
       verdict,
       feature_request: request,
+      grounding,
     })
     .select("id")
     .single();
