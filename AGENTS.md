@@ -22,6 +22,19 @@ behaviour. Several parts of the system are built against it in parallel, so it w
 preference. If you need to change a contract, change `docs/contracts.md` and the code that depends
 on it in the same commit.
 
+## Who a request belongs to
+
+An account owns exactly one project (`project.owner_id`), and that project is the whole tenant:
+its sources, conversations, escalations, trace and repository binding.
+
+- Console routes and pages resolve the caller through `apps/web/lib/console/current.ts` and scope
+  every query to the project id it returns. Never resolve a project any other way there.
+- Widget routes (`/api/chat`, `/api/escalate`, `/api/transcribe`, `/api/speak`, and the widget's
+  escalation poll) resolve by the public `embed_key` instead, because they run on a customer's
+  site with no session.
+- The worker scopes by `escalation.project_id` and prefers the project's linked GitHub token over
+  `GITHUB_TOKEN` (`services/worker/steps/github_token.py`).
+
 ## TypeScript
 
 - `strict: true` everywhere, inherited from `tsconfig.base.json`. No `any` in checked-in code.
