@@ -1,4 +1,4 @@
-import type { EscalationOffer, EscalationView, ProbeName, ProbeResult, Step, Verdict } from '../types';
+import type { EscalationOffer, EscalationView, ProbeName, ProbeResult, ReportBlock, Step, Verdict } from '../types';
 
 export type ProbeState = { status: 'pending' | 'running' | 'done'; result?: ProbeResult };
 
@@ -16,6 +16,7 @@ export type Turn = {
   messageId?: string;
   error?: string;
   reporting?: boolean;
+  reportBlocked?: ReportBlock;
   escalationId?: string;
   escalation?: EscalationView;
 };

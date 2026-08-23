@@ -1,6 +1,11 @@
 import { SseDecoder, toChatEvent } from './sse';
 import { visitorId } from './visitor';
-import type { ChatEvent, ChatRequest, EscalationView, PageContext } from '../types';
+import type { ChatEvent, ChatRequest, EscalationView, PageContext, ReportBlock } from '../types';
+
+/** Reporting either starts, or is refused for a reason the widget can explain. */
+export type EscalateResult =
+  | { ok: true; escalationId: string; status: string }
+  | { ok: false; reason: ReportBlock };
 
 export type ClientConfig = { apiBase: string; key: string };
 
@@ -55,14 +60,21 @@ export class ApiClient {
     }
   }
 
-  async escalate(conversationId: string, messageId: string): Promise<{ escalationId: string; status: string }> {
+  async escalate(conversationId: string, messageId: string): Promise<EscalateResult> {
     const response = await fetch(this.url('/api/escalate'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ key: this.config.key, conversationId, messageId, visitorId: visitorId() }),
     });
-    if (!response.ok) throw new Error(`Could not report this (${response.status})`);
-    return (await response.json()) as { escalationId: string; status: string };
+    const body = (await response.json().catch(() => ({}))) as {
+      escalationId?: string;
+      status?: string;
+      reason?: string;
+    };
+    if (!response.ok || !body.escalationId) {
+      return { ok: false, reason: body.reason === 'no_repository' ? 'no_repository' : 'failed' };
+    }
+    return { ok: true, escalationId: body.escalationId, status: body.status ?? 'queued' };
   }
 
   async escalation(id: string): Promise<EscalationView> {

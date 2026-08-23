@@ -1,6 +1,7 @@
+import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { KnowledgeConsole } from "@/components/console/knowledge/KnowledgeConsole";
-import { loadProject } from "@/lib/console/project";
+import { currentProjectOrNull } from "@/lib/console/current";
 import { DOCUMENT_COLUMNS, toConsoleDocument } from "@/lib/ingest/run";
 import type { ConsoleDocument } from "@/lib/ingest/types";
 import { serviceClient } from "@/lib/supabase";
@@ -8,8 +9,9 @@ import { serviceClient } from "@/lib/supabase";
 export const dynamic = "force-dynamic";
 
 export default async function KnowledgePage() {
-  const project = await loadProject();
-  const documents = project ? await loadDocuments(project.id) : [];
+  const project = await currentProjectOrNull();
+  if (!project) redirect("/signin");
+  const documents = await loadDocuments(project.id);
 
   return (
     <>
@@ -19,17 +21,11 @@ export default async function KnowledgePage() {
         description="Add a handbook, a documentation site or a note. Patchlet reads it, splits it into passages and remembers how well it read each one."
       />
 
-      {project ? (
-        <KnowledgeConsole
-          initialDocuments={documents}
-          siteUrl={project.siteUrl}
-          repoBound={Boolean(project.repoFullName)}
-        />
-      ) : (
-        <div className="notice is-error">
-          No project has been seeded yet. Run the migration and the seed script, then reload.
-        </div>
-      )}
+      <KnowledgeConsole
+        initialDocuments={documents}
+        siteUrl={project.siteUrl}
+        repoBound={Boolean(project.repoFullName)}
+      />
     </>
   );
 }

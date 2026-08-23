@@ -1,5 +1,6 @@
-/** The repositories Patchlet's GitHub token can reach, for the connect flow on /console/repository. */
+/** The repositories this project's GitHub credential can reach, for the connect flow. */
 import { corsJson, preflight } from "@/lib/cors";
+import { asErrorResponse, currentProject } from "@/lib/console/current";
 import { listRepositories } from "@/lib/github";
 
 export const runtime = "nodejs";
@@ -10,9 +11,12 @@ export function OPTIONS(): Response {
 }
 
 export async function GET(request: Request): Promise<Response> {
+  const project = await currentProject().catch(asErrorResponse);
+  if (project instanceof Response) return project;
+
   const query = new URL(request.url).searchParams.get("q")?.trim().toLowerCase() ?? "";
   try {
-    const all = await listRepositories();
+    const all = await listRepositories(project.id);
     const repositories = query
       ? all.filter(
           (repository) =>

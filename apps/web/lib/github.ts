@@ -26,9 +26,9 @@ type RepoPayload = {
 
 const API = "https://api.github.com";
 
-async function headers(): Promise<Record<string, string>> {
+async function headers(projectId: string): Promise<Record<string, string>> {
   return {
-    authorization: `Bearer ${await activeGithubToken()}`,
+    authorization: `Bearer ${await activeGithubToken(projectId)}`,
     accept: "application/vnd.github+json",
     "x-github-api-version": "2022-11-28",
   };
@@ -49,14 +49,14 @@ function toRepository(payload: RepoPayload): GithubRepository {
 }
 
 /**
- * Every repository the configured token can reach, newest activity first.
+ * Every repository this project's token can reach, newest activity first.
  *
  * A fine-grained token scoped to a single repository returns exactly that one, which is the honest
  * answer: the list is what Patchlet is actually allowed to open issues and pull requests in.
  */
-export async function listRepositories(): Promise<GithubRepository[]> {
+export async function listRepositories(projectId: string): Promise<GithubRepository[]> {
   const collected: GithubRepository[] = [];
-  const auth = await headers();
+  const auth = await headers(projectId);
   for (let page = 1; page <= 3; page += 1) {
     const response = await fetch(
       `${API}/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member&page=${page}`,
@@ -74,8 +74,14 @@ export async function listRepositories(): Promise<GithubRepository[]> {
 }
 
 /** Confirms the token can read `owner/name`, and returns what GitHub knows about it. */
-export async function getRepository(fullName: string): Promise<GithubRepository | null> {
-  const response = await fetch(`${API}/repos/${fullName}`, { headers: await headers(), cache: "no-store" });
+export async function getRepository(
+  projectId: string,
+  fullName: string,
+): Promise<GithubRepository | null> {
+  const response = await fetch(`${API}/repos/${fullName}`, {
+    headers: await headers(projectId),
+    cache: "no-store",
+  });
   if (response.status === 404 || response.status === 403) return null;
   if (!response.ok) {
     throw new Error(`GitHub rejected the repository check (${response.status}).`);

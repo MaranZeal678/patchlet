@@ -3,57 +3,51 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
-
-type Repository = {
-  id: number;
-  fullName: string;
-  owner: string;
-  name: string;
-  private: boolean;
-  defaultBranch: string;
-  description: string | null;
-  htmlUrl: string;
-  updatedAt: string | null;
-};
+import type { GithubRepository as Repository } from "@/lib/github";
 
 type Props = {
-  initialRepoFullName: string | null;
-  initialDefaultBranch: string | null;
+  repoFullName: string | null;
+  repoDefaultBranch: string | null;
   /** The linked GitHub account, when a user completed the OAuth flow. */
   githubLogin: string | null;
   githubAvatar: string | null;
-  /** False when the deployment has no GitHub OAuth app, so only the server credential exists. */
+  /** False when the deployment has no GitHub OAuth app, so no account can be linked here. */
   oauthAvailable: boolean;
-  linkError: string;
+  /** The choices, already fetched by the page when nothing is bound yet. */
+  initialRepositories: Repository[];
+  /** Whatever went wrong on the way here: the OAuth round trip, or that first fetch. */
+  initialError: string;
 };
 
 /**
- * Link a GitHub account, pick a repository, bind it to the project.
+ * The repository binding, in exactly one of three states.
  *
- * Without a linked account the page still works: the repository list comes back through the
- * server credential in GITHUB_TOKEN, which is exactly what the agent and the worker use.
+ * 1. nothing linked and nothing bound: link a GitHub account.
+ * 2. an account is linked but no repository is chosen: pick one.
+ * 3. a repository is bound: what it is, and how to change or remove it.
+ *
+ * The server is the source of truth for which state this is, so every action ends in a refresh
+ * rather than a local guess at the new state.
  */
 export function RepositoryConnect({
-  initialRepoFullName,
-  initialDefaultBranch,
+  repoFullName,
+  repoDefaultBranch,
   githubLogin,
   githubAvatar,
   oauthAvailable,
-  linkError,
+  initialRepositories,
+  initialError,
 }: Props) {
   const router = useRouter();
-  const [bound, setBound] = useState<{ fullName: string; defaultBranch: string } | null>(
-    initialRepoFullName
-      ? { fullName: initialRepoFullName, defaultBranch: initialDefaultBranch ?? "main" }
-      : null,
-  );
-  const [repositories, setRepositories] = useState<Repository[]>([]);
+  const [repositories, setRepositories] = useState<Repository[]>(initialRepositories);
   const [picking, setPicking] = useState(false);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [savingFullName, setSavingFullName] = useState<string | null>(null);
-  const [unlinking, setUnlinking] = useState(false);
-  const [error, setError] = useState(linkError);
+  const [busyAction, setBusyAction] = useState<"unbind" | "unlink" | null>(null);
+  const [error, setError] = useState(initialError);
+
+  const state = repoFullName ? "bound" : githubLogin ? "choose" : "connect";
 
   const loadRepositories = useCallback(async () => {
     setLoading(true);
@@ -71,41 +65,50 @@ export function RepositoryConnect({
     }
   }, []);
 
+  const patchRepository = useCallback(async (fullName: string | null) => {
+    const response = await fetch("/api/project", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ repoFullName: fullName }),
+    });
+    const result = (await response.json()) as { error?: string };
+    if (!response.ok) throw new Error(result.error ?? "The repository could not be saved.");
+  }, []);
+
   const bind = useCallback(
     async (repository: Repository) => {
       setSavingFullName(repository.fullName);
       setError("");
       try {
-        const response = await fetch("/api/project", {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ repoFullName: repository.fullName }),
-        });
-        const result = (await response.json()) as {
-          project?: { repoFullName: string | null; repoDefaultBranch: string | null };
-          error?: string;
-        };
-        if (!response.ok || !result.project?.repoFullName) {
-          throw new Error(result.error ?? "The repository could not be bound.");
-        }
-        setBound({
-          fullName: result.project.repoFullName,
-          defaultBranch: result.project.repoDefaultBranch ?? repository.defaultBranch,
-        });
+        await patchRepository(repository.fullName);
         setPicking(false);
         setRepositories([]);
         setSearch("");
+        router.refresh();
       } catch (bindError) {
         setError(bindError instanceof Error ? bindError.message : "The repository could not be bound.");
       } finally {
         setSavingFullName(null);
       }
     },
-    [],
+    [patchRepository, router],
   );
 
+  const unbind = useCallback(async () => {
+    setBusyAction("unbind");
+    setError("");
+    try {
+      await patchRepository(null);
+      router.refresh();
+    } catch (unbindError) {
+      setError(unbindError instanceof Error ? unbindError.message : "The repository could not be removed.");
+    } finally {
+      setBusyAction(null);
+    }
+  }, [patchRepository, router]);
+
   const unlink = useCallback(async () => {
-    setUnlinking(true);
+    setBusyAction("unlink");
     setError("");
     try {
       const response = await fetch("/api/github/disconnect", { method: "POST" });
@@ -117,7 +120,7 @@ export function RepositoryConnect({
     } catch (unlinkError) {
       setError(unlinkError instanceof Error ? unlinkError.message : "The account could not be unlinked.");
     } finally {
-      setUnlinking(false);
+      setBusyAction(null);
     }
   }, [router]);
 
@@ -131,14 +134,12 @@ export function RepositoryConnect({
     );
   }, [repositories, search]);
 
-  const connected = Boolean(githubLogin) || !oauthAvailable;
-
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.7fr)]">
       <section className="panel">
         <div className="panel__head">
-          <h2>{connected ? "GitHub" : "Connect GitHub"}</h2>
-          {bound ? <span className="count-pill">bound</span> : null}
+          <h2>{state === "connect" ? "Connect GitHub" : "GitHub"}</h2>
+          {state === "bound" ? <span className="count-pill">bound</span> : null}
         </div>
 
         {error ? (
@@ -147,22 +148,31 @@ export function RepositoryConnect({
           </div>
         ) : null}
 
-        {connected ? (
+        {state === "connect" ? (
+          <ConnectPrompt oauthAvailable={oauthAvailable} />
+        ) : (
           <div className="grid gap-5">
             <Identity
               login={githubLogin}
               avatar={githubAvatar}
-              unlinking={unlinking}
+              oauthAvailable={oauthAvailable}
+              unlinking={busyAction === "unlink"}
               onUnlink={() => void unlink()}
             />
 
-            {bound && !picking ? (
+            {state === "bound" && !picking ? (
               <BoundRepository
-                fullName={bound.fullName}
-                defaultBranch={bound.defaultBranch}
+                fullName={repoFullName ?? ""}
+                defaultBranch={repoDefaultBranch ?? "main"}
+                linked={Boolean(githubLogin)}
+                unbinding={busyAction === "unbind"}
+                loading={loading}
                 onChange={() => void loadRepositories()}
+                onUnbind={() => void unbind()}
               />
-            ) : picking ? (
+            ) : loading ? (
+              <p className="field-hint m-0">Reading your repositories from GitHub...</p>
+            ) : (
               <RepositoryPicker
                 repositories={filtered}
                 total={repositories.length}
@@ -171,37 +181,7 @@ export function RepositoryConnect({
                 onSearch={setSearch}
                 onPick={bind}
               />
-            ) : (
-              <div className="grid gap-4">
-                <p className="field-hint m-0">
-                  Choose the repository the agent reads for evidence and files its issues and draft
-                  pull requests in.
-                </p>
-                <div>
-                  <button
-                    type="button"
-                    className="primary-action"
-                    onClick={() => void loadRepositories()}
-                    disabled={loading}
-                  >
-                    {loading ? "Reaching GitHub..." : "Choose a repository"}
-                  </button>
-                </div>
-              </div>
             )}
-          </div>
-        ) : (
-          <div className="grid gap-4">
-            <p className="field-hint m-0">
-              Patchlet needs one repository to read for evidence and to open issues and draft pull
-              requests in. Link your GitHub account to choose it.
-            </p>
-            <div>
-              <a className="primary-action" href="/api/github/connect">
-                <GithubGlyph />
-                Connect GitHub
-              </a>
-            </div>
           </div>
         )}
       </section>
@@ -221,15 +201,43 @@ export function RepositoryConnect({
   );
 }
 
-/** The linked account, or the honest statement that the server credential is what is in use. */
+/** State 1: no account linked and no repository bound. */
+function ConnectPrompt({ oauthAvailable }: { oauthAvailable: boolean }) {
+  return (
+    <div className="grid gap-4">
+      <p className="field-hint m-0">
+        Patchlet needs one repository to read for evidence and to open issues and draft pull
+        requests in. Link your GitHub account to choose it.
+      </p>
+      {/* No button when it cannot work: it would only bounce back to this page. */}
+      {oauthAvailable ? (
+        <div>
+          <a className="primary-action" href="/api/github/connect">
+            <GithubGlyph />
+            Connect GitHub
+          </a>
+        </div>
+      ) : (
+        <div className="notice">
+          GitHub linking is not configured on this deployment. Set the OAuth app variables and
+          reload to connect an account.
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The linked account, or the honest statement that only the server credential is in use. */
 function Identity({
   login,
   avatar,
+  oauthAvailable,
   unlinking,
   onUnlink,
 }: {
   login: string | null;
   avatar: string | null;
+  oauthAvailable: boolean;
   unlinking: boolean;
   onUnlink: () => void;
 }) {
@@ -239,10 +247,19 @@ function Identity({
         <span className="github-identity__avatar grid place-items-center">
           <GithubGlyph />
         </span>
-        <span className="grid">
-          <span className="github-identity__login">Patchlet</span>
-          <span className="github-identity__source">Connected through the server credential</span>
+        <span className="github-identity__body">
+          <span className="github-identity__login">No GitHub account linked</span>
+          <span className="github-identity__source">
+            Bound through the server credential until you connect GitHub
+          </span>
         </span>
+        {oauthAvailable ? (
+          <span className="github-identity__actions">
+            <a className="link-button" href="/api/github/connect">
+              Connect GitHub
+            </a>
+          </span>
+        ) : null}
       </div>
     );
   }
@@ -263,7 +280,7 @@ function Identity({
           <GithubGlyph />
         </span>
       )}
-      <span className="grid">
+      <span className="github-identity__body">
         <a
           className="github-identity__login"
           href={`https://github.com/${login}`}
@@ -272,7 +289,7 @@ function Identity({
         >
           @{login}
         </a>
-        <span className="github-identity__source">Connected through this GitHub account</span>
+        <span className="github-identity__source">Bound through this GitHub account</span>
       </span>
       <span className="github-identity__actions">
         <button type="button" className="link-button" onClick={onUnlink} disabled={unlinking}>
@@ -283,14 +300,23 @@ function Identity({
   );
 }
 
+/** State 3: a repository is bound. */
 function BoundRepository({
   fullName,
   defaultBranch,
+  linked,
+  unbinding,
+  loading,
   onChange,
+  onUnbind,
 }: {
   fullName: string;
   defaultBranch: string;
+  linked: boolean;
+  unbinding: boolean;
+  loading: boolean;
   onChange: () => void;
+  onUnbind: () => void;
 }) {
   return (
     <div className="grid gap-4">
@@ -310,15 +336,21 @@ function BoundRepository({
         Patchlet opens issues and draft pull requests here. Choosing another repository points every
         future run at it instead.
       </p>
-      <div>
-        <button type="button" className="secondary-action" onClick={onChange}>
-          Choose another repository
+      <div className="flex flex-wrap gap-3">
+        {linked ? (
+          <button type="button" className="secondary-action" onClick={onChange} disabled={loading}>
+            {loading ? "Reaching GitHub..." : "Choose another repository"}
+          </button>
+        ) : null}
+        <button type="button" className="link-button" onClick={onUnbind} disabled={unbinding}>
+          {unbinding ? "Unbinding..." : "Unbind"}
         </button>
       </div>
     </div>
   );
 }
 
+/** State 2: an account is linked, so choose the repository to bind. */
 function RepositoryPicker({
   repositories,
   total,

@@ -5,7 +5,7 @@
  * console shows here is exactly what grounds an answer.
  */
 import { corsJson, preflight } from "@/lib/cors";
-import { loadProject } from "@/lib/console/project";
+import { asErrorResponse, currentProject } from "@/lib/console/current";
 import type { SearchMatch } from "@/lib/ingest/types";
 import { embed } from "@/lib/mistral";
 import { serviceClient } from "@/lib/supabase";
@@ -23,8 +23,8 @@ export async function GET(request: Request): Promise<Response> {
   const question = (new URL(request.url).searchParams.get("q") ?? "").trim();
   if (question === "") return corsJson({ error: "Ask a question first." }, { status: 400 });
 
-  const project = await loadProject();
-  if (!project) return corsJson({ matches: [] });
+  const project = await currentProject().catch(asErrorResponse);
+  if (project instanceof Response) return project;
 
   try {
     const client = serviceClient();

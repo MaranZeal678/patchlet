@@ -6,6 +6,7 @@
  * itself is the channel.
  */
 import { preflight, withCors } from "@/lib/cors";
+import { asErrorResponse, currentProject } from "@/lib/console/current";
 import { serviceClient } from "@/lib/supabase";
 import { emitTrace } from "@/lib/trace";
 import { mistralApiKey } from "@/lib/env";
@@ -46,6 +47,9 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ): Promise<Response> {
+  const project = await currentProject().catch(asErrorResponse);
+  if (project instanceof Response) return project;
+
   const { id } = await context.params;
   const body = (await request.json().catch(() => ({}))) as { approved?: boolean; note?: string };
   if (typeof body.approved !== "boolean") {
@@ -58,6 +62,7 @@ export async function POST(
     .from("escalation")
     .select("id, project_id, engine, execution_id, status")
     .eq("id", id)
+    .eq("project_id", project.id)
     .maybeSingle();
   if (!escalation) return withCors(Response.json({ error: "not found" }, { status: 404 }));
 

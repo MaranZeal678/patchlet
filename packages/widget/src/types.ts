@@ -49,7 +49,12 @@ export type FeatureRequest = {
   rationale: string;
 };
 
-export type EscalationOffer = { offered: true; request: FeatureRequest } | { offered: false };
+/** Why the widget cannot report a missing feature: refused up front, or refused when it tried. */
+export type ReportBlock = 'no_repository' | 'failed';
+
+export type EscalationOffer =
+  | { offered: true; request: FeatureRequest }
+  | { offered: false; reason?: 'no_repository' };
 
 export type ChatEvent =
   | { type: 'conversation'; conversationId: string; messageId: string }

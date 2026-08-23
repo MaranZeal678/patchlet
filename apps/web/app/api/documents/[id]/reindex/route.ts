@@ -3,7 +3,7 @@
  * attached in place of one that was only ever read (an upload keeps its row and its history).
  */
 import { corsJson, preflight } from "@/lib/cors";
-import { loadProject } from "@/lib/console/project";
+import { asErrorResponse, currentProject } from "@/lib/console/current";
 import { sourceFromDocument, type StoredDocument } from "@/lib/ingest/request";
 import { reingestSource } from "@/lib/ingest/run";
 import { fileSource } from "@/lib/ingest/sources";
@@ -34,9 +34,10 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ): Promise<Response> {
+  const project = await currentProject().catch(asErrorResponse);
+  if (project instanceof Response) return project;
+
   const { id } = await context.params;
-  const project = await loadProject();
-  if (!project) return corsJson({ error: "No project has been seeded yet." }, { status: 409 });
 
   const { data } = await serviceClient()
     .from("document")

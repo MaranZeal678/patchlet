@@ -1,6 +1,6 @@
 /** Every reported feature request, newest first. */
 import { corsJson, preflight } from "@/lib/cors";
-import { loadProject } from "@/lib/console/project";
+import { asErrorResponse, currentProject } from "@/lib/console/current";
 import { loadEscalations } from "@/lib/console/records";
 
 export const runtime = "nodejs";
@@ -11,8 +11,8 @@ export function OPTIONS(): Response {
 }
 
 export async function GET(): Promise<Response> {
-  const project = await loadProject();
-  if (!project) return corsJson({ escalations: [] });
+  const project = await currentProject().catch(asErrorResponse);
+  if (project instanceof Response) return project;
   try {
     return corsJson({ escalations: await loadEscalations(project.id) });
   } catch (error) {

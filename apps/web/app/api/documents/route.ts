@@ -1,6 +1,6 @@
 /** Everything the agent can answer from: the list, and the way new sources arrive. */
 import { corsJson, preflight } from "@/lib/cors";
-import { loadProject } from "@/lib/console/project";
+import { asErrorResponse, currentProject } from "@/lib/console/current";
 import { sourceFromRequest } from "@/lib/ingest/request";
 import { DOCUMENT_COLUMNS, ingestSource, toConsoleDocument } from "@/lib/ingest/run";
 import { serviceClient } from "@/lib/supabase";
@@ -15,8 +15,8 @@ export function OPTIONS(): Response {
 }
 
 export async function GET(): Promise<Response> {
-  const project = await loadProject();
-  if (!project) return corsJson({ documents: [] });
+  const project = await currentProject().catch(asErrorResponse);
+  if (project instanceof Response) return project;
 
   const { data, error } = await serviceClient()
     .from("document")
@@ -29,10 +29,8 @@ export async function GET(): Promise<Response> {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const project = await loadProject();
-  if (!project) {
-    return corsJson({ error: "No project has been seeded yet." }, { status: 409 });
-  }
+  const project = await currentProject().catch(asErrorResponse);
+  if (project instanceof Response) return project;
 
   try {
     const source = await sourceFromRequest(request);

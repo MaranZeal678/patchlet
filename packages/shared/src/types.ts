@@ -65,6 +65,16 @@ export type EscalateRequest = {
   visitorId?: string;
 };
 
+/**
+ * Whether the agent offered to report a missing feature.
+ *
+ * `reason` says why it could not: today the only one is a project with no repository bound, which
+ * the widget explains rather than offering a button that cannot work.
+ */
+export type EscalationOffer =
+  | { offered: true; request: FeatureRequest }
+  | { offered: false; reason?: "no_repository" };
+
 /** `/api/chat` server-sent events, in order of emission. */
 export type ChatEvent =
   | { type: "conversation"; conversationId: string; messageId: string }
@@ -82,7 +92,7 @@ export type ChatEvent =
       type: "answer";
       text: string;
       steps: Step[] | null;
-      escalation: { offered: true; request: FeatureRequest } | { offered: false };
+      escalation: EscalationOffer;
     }
   | { type: "error"; message: string };
 

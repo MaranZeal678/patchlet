@@ -190,7 +190,7 @@ def file_issue_with_model(
     """
     owner, repo = repo_full_name.split("/", 1)
     try:
-        client = mcp or GitHubMcpClient()
+        client = mcp or GitHubMcpClient(token=rest.token if rest else None)
         tool_name = _resolve_create_tool(client.list_tools())
         call = llm.function_call(
             ISSUE_MODEL,
@@ -257,7 +257,7 @@ def open_draft_pr_with_fallback(
     owner, repo = repo_full_name.split("/", 1)
     fallback = rest or GitHubClient(repo_full_name)
     try:
-        client = mcp or GitHubMcpClient()
+        client = mcp or GitHubMcpClient(token=fallback.token)
         result = client.call_tool(
             "create_pull_request",
             {"owner": owner, "repo": repo, "title": title, "body": body, "head": head, "base": base, "draft": True},

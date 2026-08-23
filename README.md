@@ -98,9 +98,13 @@ file that is committed; supply them through your own environment or secret manag
 
 The console is behind Supabase Auth (email and password). Open `/signin`, choose **Create account**,
 give a company name, an address and a password, and you land on `/console`. `apps/web/proxy.ts`
-sends anonymous visits to `/console/**` back to `/signin`; the landing page and every `/api/*`
-route stay public, because the widget on a customer's site and the worker call them without a
-browser session. There is one seeded project, so every signed-in user manages the same one.
+sends anonymous visits to `/console/**` back to `/signin`.
+
+Creating an account also creates the one project it owns: a slug from the company name, a fresh
+embed key, no site and no repository. Every console route resolves the caller to that project and
+scopes its queries to it, so accounts never see each other's sources, conversations or repository;
+without a session those routes answer `401`. The widget's own routes stay public and resolve by the
+project's embed key instead, because they run on a customer's site with no browser session.
 
 Because this Supabase project confirms addresses by email, sign-up goes through
 `POST /api/auth/signup`, which creates the account already confirmed with the service role. The

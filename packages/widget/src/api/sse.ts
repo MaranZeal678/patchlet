@@ -1,4 +1,4 @@
-import type { ChatEvent, FeatureRequest, ProbeName, ProbeResult, Step, Verdict } from '../types';
+import type { ChatEvent, EscalationOffer, FeatureRequest, ProbeName, ProbeResult, Step, Verdict } from '../types';
 
 /**
  * Incremental text/event-stream reader. Feed it decoded chunks; it returns the
@@ -92,10 +92,7 @@ export function toChatEvent(payload: string): ChatEvent | null {
         type: 'answer',
         text: parsed.text,
         steps: coerceSteps(parsed.steps),
-        escalation:
-          isRecord(parsed.escalation) && parsed.escalation.offered === true && isRecord(parsed.escalation.request)
-            ? { offered: true, request: parsed.escalation.request as FeatureRequest }
-            : { offered: false },
+        escalation: toEscalationOffer(parsed.escalation),
       };
 
     case 'error':
@@ -148,4 +145,13 @@ export function coerceSteps(value: unknown): Step[] | null {
     });
   }
   return steps.length ? steps : null;
+}
+
+/** The offer, or the reason there was none. Anything unrecognised reads as a plain refusal. */
+function toEscalationOffer(value: unknown): EscalationOffer {
+  if (!isRecord(value)) return { offered: false };
+  if (value.offered === true && isRecord(value.request)) {
+    return { offered: true, request: value.request as FeatureRequest };
+  }
+  return value.reason === 'no_repository' ? { offered: false, reason: 'no_repository' } : { offered: false };
 }

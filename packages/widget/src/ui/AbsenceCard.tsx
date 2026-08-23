@@ -1,4 +1,10 @@
-import type { EscalationStatus, EscalationView, FeatureRequest } from '../types';
+import type { EscalationStatus, EscalationView, FeatureRequest, ReportBlock } from '../types';
+
+/** Why the offer could not be taken up. This is what the user reads, so it says who is missing what. */
+const BLOCKED_COPY: Record<ReportBlock, string> = {
+  no_repository: 'The team has not connected a repository yet, so I cannot report this.',
+  failed: 'The report could not be sent. Nothing was lost, so try again in a moment.',
+};
 
 /**
  * Shown when the three checks found nothing. Offers to report the gap, then
@@ -9,20 +15,23 @@ export function AbsenceCard({
   request,
   escalation,
   reporting,
+  blocked,
   elapsedSeconds,
   onReport,
 }: {
   text: string;
-  request: FeatureRequest;
+  /** Absent when the agent never offered, so there is no drafted title to name. */
+  request?: FeatureRequest;
   escalation?: EscalationView;
   reporting?: boolean;
+  blocked?: ReportBlock;
   elapsedSeconds: number;
   onReport: () => void;
 }) {
   return (
     <div class="pl-card">
       <p>{text}</p>
-      {!escalation && (
+      {!escalation && !blocked && request && (
         <div class="pl-card__actions">
           <button type="button" class="pl-btn pl-btn--accent" onClick={onReport} disabled={reporting}>
             {reporting ? 'Reporting' : 'Report to developers'}
@@ -30,6 +39,7 @@ export function AbsenceCard({
           <span class="pl-card__label">{request.title}</span>
         </div>
       )}
+      {!escalation && blocked && <p class="pl-card__note">{BLOCKED_COPY[blocked]}</p>}
       {escalation && <Timeline escalation={escalation} elapsedSeconds={elapsedSeconds} />}
     </div>
   );

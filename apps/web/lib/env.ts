@@ -51,9 +51,6 @@ export function githubOauthApp(): { clientId: string; clientSecret: string; redi
 /** Vercel token used to watch the target project's deployments. */
 export const vercelToken = (): string => required("VERCEL_TOKEN");
 
-/** Slug of the single project the console manages. */
-export const projectSlug = (): string => optional("PATCHLET_PROJECT_SLUG", "not-mistral");
-
 /** Which engine runs an escalation: the durable workflow, or the worker's local runner. */
 export const escalationEngine = (): "mistral" | "local" =>
   optional("ESCALATION_ENGINE", "mistral") === "local" ? "local" : "mistral";

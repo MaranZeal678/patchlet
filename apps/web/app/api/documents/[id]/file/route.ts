@@ -4,7 +4,7 @@
  * The bucket is private, so the bytes are fetched with the service role and streamed back to the
  * signed-in console rather than handed out as a public URL.
  */
-import { loadProject } from "@/lib/console/project";
+import { asErrorResponse, currentProject } from "@/lib/console/current";
 import { corsJson, preflight, withCors } from "@/lib/cors";
 import { readOriginal } from "@/lib/ingest/storage";
 import { serviceClient } from "@/lib/supabase";
@@ -36,8 +36,8 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  const project = await loadProject();
-  if (!project) return corsJson({ error: "No project has been seeded yet." }, { status: 409 });
+  const project = await currentProject().catch(asErrorResponse);
+  if (project instanceof Response) return project;
 
   const { id } = await context.params;
   const { data } = await serviceClient()
