@@ -87,11 +87,18 @@ describe('the call state machine', () => {
 
   it('ignores phase moves that are out of order', () => {
     const listening = run([{ type: 'start' }]);
-    expect(callReducer(listening, { type: 'answered' })).toBe(listening);
     expect(callReducer(listening, { type: 'spoke' })).toBe(listening);
 
     const thinking = callReducer(listening, { type: 'heard' });
     expect(callReducer(thinking, { type: 'heard' })).toBe(thinking);
     expect(callReducer(thinking, { type: 'spoke' })).toBe(thinking);
+  });
+
+  it('speaks an answer that arrives without a listening turn behind it', () => {
+    // The host page can ask a question itself while a call is open.
+    const listening = run([{ type: 'start' }]);
+    const speaking = callReducer(listening, { type: 'answered' });
+    expect(callLabel(speaking)).toBe('Speaking');
+    expect(callReducer(speaking, { type: 'answered' })).toBe(speaking);
   });
 });

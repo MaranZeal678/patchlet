@@ -52,8 +52,8 @@ export class VoicePlayer {
       audio.addEventListener('error', () => finish());
       audio.addEventListener('pause', () => this.onStateChange(this.speaking));
 
-      if (canStream()) await this.playStreaming(audio, response.body, controller.signal);
-      else await this.playBuffered(audio, response);
+      if (canStream()) await this.playStreaming(audio, response.body, controller.signal, finish);
+      else await this.playBuffered(audio, response, finish);
       this.onStateChange(true);
     } catch (error) {
       if ((error as Error)?.name !== 'AbortError') {
@@ -80,7 +80,12 @@ export class VoicePlayer {
     this.onStateChange(false);
   }
 
-  private async playStreaming(audio: HTMLAudioElement, body: ReadableStream<Uint8Array>, signal: AbortSignal): Promise<void> {
+  private async playStreaming(
+    audio: HTMLAudioElement,
+    body: ReadableStream<Uint8Array>,
+    signal: AbortSignal,
+    onBlocked: () => void,
+  ): Promise<void> {
     const media = new MediaSource();
     this.objectUrl = URL.createObjectURL(media);
     audio.src = this.objectUrl;
@@ -95,18 +100,20 @@ export class VoicePlayer {
       await appendChunk(buffer, value);
       if (!started) {
         started = true;
-        void audio.play().catch(() => undefined);
+        // A browser that refuses to autoplay would otherwise leave a caller waiting
+        // for a clip that never ends.
+        void audio.play().catch(onBlocked);
       }
     }
     if (media.readyState === 'open') media.endOfStream();
-    if (!started) void audio.play().catch(() => undefined);
+    if (!started) void audio.play().catch(onBlocked);
   }
 
-  private async playBuffered(audio: HTMLAudioElement, response: Response): Promise<void> {
+  private async playBuffered(audio: HTMLAudioElement, response: Response, onBlocked: () => void): Promise<void> {
     const blob = await response.blob();
     this.objectUrl = URL.createObjectURL(blob);
     audio.src = this.objectUrl;
-    await audio.play().catch(() => undefined);
+    await audio.play().catch(onBlocked);
   }
 }
 

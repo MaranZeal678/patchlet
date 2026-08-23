@@ -48,7 +48,9 @@ export function callReducer(state: CallState, action: CallAction): CallState {
     case 'heard':
       return state.phase === 'listening' ? { ...state, phase: 'thinking' } : state;
     case 'answered':
-      return state.phase === 'thinking' ? { ...state, phase: 'speaking' } : state;
+      // A question can also arrive through the host page's own `ask`, with no listening turn
+      // behind it, and the agent still has to be shown as speaking.
+      return state.phase === 'speaking' ? state : { ...state, phase: 'speaking' };
     case 'spoke':
       return state.phase === 'speaking' ? { ...state, phase: 'listening' } : state;
     case 'unheard':
