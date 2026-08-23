@@ -311,10 +311,10 @@ body {
 .eyebrow {
   margin: 0 0 10px;
   color: var(--accent);
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.14em;
 }
 
 /* --- Panels and stats ------------------------------------------------------------ */
@@ -534,6 +534,26 @@ body {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(46, 111, 84, 0.14);
+}
+
+.field-input:disabled {
+  background: rgba(235, 231, 220, 0.55);
+  color: var(--faint);
+  cursor: not-allowed;
+}
+
+/* Chrome paints an autofilled field its own pale blue, which is the one colour on the page
+   that is not ours. The inset shadow is the only way to override it. */
+.field-input:-webkit-autofill,
+.field-input:-webkit-autofill:hover,
+.field-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--ink);
+  box-shadow: 0 0 0 1000px var(--panel) inset;
+  transition: background-color 100000s ease 0s;
+}
+
+.field-input:-webkit-autofill:focus {
+  box-shadow: 0 0 0 1000px var(--panel) inset, 0 0 0 3px rgba(46, 111, 84, 0.14);
 }
 
 .field-hint {
@@ -1740,6 +1760,12 @@ body {
   padding: 48px 24px 64px;
 }
 
+@media (max-width: 640px) {
+  .auth-main {
+    padding: 40px 22px 56px;
+  }
+}
+
 .auth-card {
   width: 100%;
   max-width: 400px;
@@ -1816,6 +1842,11 @@ body {
 .auth-form {
   display: grid;
   gap: 16px;
+}
+
+/* One rhythm down the column: the fields and the call to action are the same height. */
+.auth-form .field-input {
+  min-height: 46px;
 }
 
 .auth-form .primary-action {
