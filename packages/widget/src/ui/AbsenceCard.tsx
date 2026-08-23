@@ -38,11 +38,11 @@ export function AbsenceCard({
 type Stage = { key: string; label: string; statuses: EscalationStatus[] };
 
 const STAGES: Stage[] = [
-  { key: 'filed', label: 'Filed as an issue', statuses: ['filing', 'inspecting', 'drafting', 'pr_open', 'awaiting_approval', 'approved', 'merging', 'deploying', 'shipped'] },
-  { key: 'drafted', label: 'Change drafted', statuses: ['drafting', 'pr_open', 'awaiting_approval', 'approved', 'merging', 'deploying', 'shipped'] },
-  { key: 'pr', label: 'Draft pull request opened', statuses: ['pr_open', 'awaiting_approval', 'approved', 'merging', 'deploying', 'shipped'] },
-  { key: 'approval', label: 'Waiting for a developer to approve', statuses: ['awaiting_approval', 'approved', 'merging', 'deploying', 'shipped'] },
-  { key: 'shipped', label: 'Shipped', statuses: ['shipped'] },
+  { key: 'filed', label: 'Your request was sent to the team', statuses: ['filing', 'inspecting', 'drafting', 'pr_open', 'awaiting_approval', 'approved', 'merging', 'deploying', 'shipped'] },
+  { key: 'drafted', label: 'Someone is working on it', statuses: ['drafting', 'pr_open', 'awaiting_approval', 'approved', 'merging', 'deploying', 'shipped'] },
+  { key: 'pr', label: 'A change is ready for review', statuses: ['pr_open', 'awaiting_approval', 'approved', 'merging', 'deploying', 'shipped'] },
+  { key: 'approval', label: 'Waiting on a final check', statuses: ['awaiting_approval', 'approved', 'merging', 'deploying', 'shipped'] },
+  { key: 'shipped', label: 'Done, it is live', statuses: ['shipped'] },
 ];
 
 const ORDER: EscalationStatus[] = [
@@ -66,7 +66,7 @@ function Timeline({ escalation, elapsedSeconds }: { escalation: EscalationView; 
 
   return (
     <>
-      <span class="pl-card__label">Report status</span>
+      <span class="pl-card__label">Progress</span>
       <ul class="pl-timeline">
         {STAGES.map((stage) => {
           const reached = stage.statuses.includes(status);
@@ -93,21 +93,21 @@ function label(stage: Stage, escalation: EscalationView) {
   if (stage.key === 'filed' && escalation.issueUrl) {
     return (
       <a class="pl-link" href={escalation.issueUrl} target="_blank" rel="noreferrer noopener">
-        Filed: issue #{escalation.issueNumber ?? ''}
+        See your request on GitHub
       </a>
     );
   }
   if (stage.key === 'pr' && escalation.prUrl) {
     return (
       <a class="pl-link" href={escalation.prUrl} target="_blank" rel="noreferrer noopener">
-        Draft pull request #{escalation.prNumber ?? ''}
+        See the change on GitHub
       </a>
     );
   }
   if (stage.key === 'shipped' && escalation.deploymentUrl) {
     return (
       <a class="pl-link" href={escalation.deploymentUrl} target="_blank" rel="noreferrer noopener">
-        Shipped, reload to see it
+        It is live now, reload the page to use it
       </a>
     );
   }
