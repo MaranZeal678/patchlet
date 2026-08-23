@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { ConsoleNav } from "@/components/console/ConsoleNav";
 import { currentAccount } from "@/lib/auth/server";
+import { projectDisplayName } from "@/lib/console/project";
 import { ensureProject } from "@/lib/console/provision";
 
 export default async function ConsoleLayout({ children }: { children: React.ReactNode }) {
@@ -15,7 +16,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
     <div className="app-shell">
       <ConsoleNav
         email={account.email}
-        company={account.company}
+        company={projectDisplayName(project)}
         githubLogin={project.githubLogin}
       />
       <main className="console-page">{children}</main>

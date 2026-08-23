@@ -247,7 +247,7 @@ function Identity({
         <span className="github-identity__avatar grid place-items-center">
           <GithubGlyph />
         </span>
-        <span className="grid">
+        <span className="github-identity__body">
           <span className="github-identity__login">No GitHub account linked</span>
           <span className="github-identity__source">
             Bound through the server credential until you connect GitHub
@@ -280,7 +280,7 @@ function Identity({
           <GithubGlyph />
         </span>
       )}
-      <span className="grid">
+      <span className="github-identity__body">
         <a
           className="github-identity__login"
           href={`https://github.com/${login}`}

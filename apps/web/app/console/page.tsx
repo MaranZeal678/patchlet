@@ -30,6 +30,8 @@ export default async function ConsoleOverviewPage() {
   // A project that has done nothing yet gets onboarding, not a dashboard of zeroes.
   const hasActivity = outcomes.all > 0 || counts.escalations > 0;
   const hasAnything = hasActivity || counts.documents > 0;
+  const openConversations =
+    outcomes.all - CONVERSATION_OUTCOMES.reduce((total, outcome) => total + outcomes[outcome], 0);
 
   return (
     <>
@@ -130,8 +132,9 @@ export default async function ConsoleOverviewPage() {
                   Read them
                 </Link>
               </div>
+              {/* Only the ways conversations actually ended, plus the ones still open. */}
               <dl className="grid gap-3">
-                {CONVERSATION_OUTCOMES.map((outcome) => (
+                {CONVERSATION_OUTCOMES.filter((outcome) => outcomes[outcome] > 0).map((outcome) => (
                   <Tally
                     key={outcome}
                     label={outcomeLabel(outcome)}
@@ -139,6 +142,9 @@ export default async function ConsoleOverviewPage() {
                     tone={outcomeTone(outcome)}
                   />
                 ))}
+                {openConversations > 0 ? (
+                  <Tally label={outcomeLabel(null)} value={openConversations} tone={outcomeTone(null)} />
+                ) : null}
               </dl>
             </section>
           ) : null}
