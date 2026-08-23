@@ -93,6 +93,19 @@ export function ActivityConsole({
   const nothingToShow =
     (showEscalations ? escalations.length : 0) + (showConversations ? conversations.length : 0) === 0;
 
+  // With nothing recorded the filters count nothing three ways. One empty state says more.
+  if (escalations.length === 0 && conversations.length === 0) {
+    return (
+      <div className="empty-state">
+        <p className="empty-state__title">Nothing has happened yet</p>
+        <p className="empty-state__text">
+          Install the widget on your site. The first question shows up here, with every check,
+          decision and artefact behind it.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="filter-row">
@@ -123,14 +136,11 @@ export function ActivityConsole({
       ) : null}
 
       <div className="activity-grid">
-        <div className="activity-list">
+        <div className="list-column">
           {nothingToShow ? (
             <div className="empty-state">
-              <p className="empty-state__title">Nothing has happened yet</p>
-              <p className="empty-state__text">
-                Ask the widget a question on your site. The conversation, every check and every
-                artefact appear here as they happen.
-              </p>
+              <p className="empty-state__title">Nothing under this filter</p>
+              <p className="empty-state__text">Try another one.</p>
             </div>
           ) : (
             <ul className="record-list">
@@ -164,7 +174,7 @@ export function ActivityConsole({
                         {escalation.request?.title ?? "Feature request"}
                       </p>
                       {escalation.request?.quote ? (
-                        <p className="record-card__line">
+                        <p className="record-card__line is-clipped" title={escalation.request.quote}>
                           <span className="record-card__label">Asked</span>
                           {escalation.request.quote}
                         </p>
@@ -204,7 +214,7 @@ export function ActivityConsole({
                         {conversation.question ?? conversation.pageTitle ?? "Conversation"}
                       </p>
                       {conversation.pageTitle ? (
-                        <p className="record-card__line">
+                        <p className="record-card__line is-clipped" title={conversation.pageTitle}>
                           <span className="record-card__label">Page</span>
                           {conversation.pageTitle}
                         </p>

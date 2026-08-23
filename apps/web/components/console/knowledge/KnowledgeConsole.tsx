@@ -166,7 +166,7 @@ export function KnowledgeConsole({ initialDocuments, siteUrl, repoBound }: Props
         </section>
       </div>
 
-      <TestQuestion />
+      <TestQuestion hasSources={documents.length > 0} />
 
       {previewing ? (
         <PreviewDrawer key={previewing.id} document={previewing} onClose={() => setPreviewing(null)} />

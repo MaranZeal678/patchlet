@@ -3,6 +3,7 @@ import type { Step, Verdict } from "@patchlet/shared";
 import {
   deriveOutcome,
   isConversationOutcome,
+  outcomeFromTurns,
   outcomeLabel,
   outcomeTone,
   reconcileOutcome,
@@ -80,5 +81,46 @@ describe("outcome labels", () => {
     expect(outcomeLabel(null)).toBe("In progress");
     expect(outcomeTone("solved")).toBe("is-good");
     expect(outcomeTone(null)).toBe("is-muted");
+  });
+});
+
+describe("outcomeFromTurns", () => {
+  const asked = { role: "user", steps: null, verdict: null };
+
+  it("is null while the agent has not replied, which is the only in-progress state", () => {
+    expect(outcomeFromTurns([])).toBe(null);
+    expect(outcomeFromTurns([asked])).toBe(null);
+  });
+
+  it("reads guidance in the transcript as solved", () => {
+    expect(
+      outcomeFromTurns([asked, { role: "assistant", steps: [step], verdict: verdict("answer") }]),
+    ).toBe("solved");
+  });
+
+  it("reads a confirmed absence as a missing feature", () => {
+    expect(
+      outcomeFromTurns([asked, { role: "assistant", steps: null, verdict: verdict("absent") }]),
+    ).toBe("missing_feature");
+  });
+
+  it("reads anything else as unresolved, including a reply with no verdict stored", () => {
+    expect(
+      outcomeFromTurns([asked, { role: "assistant", steps: null, verdict: verdict("hedge") }]),
+    ).toBe("unresolved");
+    expect(outcomeFromTurns([asked, { role: "assistant", steps: null, verdict: null }])).toBe(
+      "unresolved",
+    );
+  });
+
+  it("judges the conversation by its last reply", () => {
+    expect(
+      outcomeFromTurns([
+        asked,
+        { role: "assistant", steps: null, verdict: verdict("hedge") },
+        asked,
+        { role: "assistant", steps: [step], verdict: verdict("answer") },
+      ]),
+    ).toBe("solved");
   });
 });

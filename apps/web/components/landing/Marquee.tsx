@@ -1,6 +1,12 @@
 const ITEMS = ["Mistral", "GitHub", "Supabase", "Vercel", "Next.js", "Postgres", "OCR", "Codestral"];
 
-/** The stack strip under the hero. Purely typographic, scrolling slowly behind a soft mask. */
+/**
+ * The stack strip under the hero. Purely typographic, scrolling slowly behind a soft mask.
+ *
+ * The spacing is trailing padding on each name rather than a flex gap, because the loop moves
+ * the row by exactly half its width: with a gap there is no space after the last name and the
+ * seam shows every time it comes round.
+ */
 export function Marquee() {
   return (
     <section aria-label="Stack" className="overflow-hidden border-y border-line/60 bg-surface/40 py-7">
@@ -8,12 +14,12 @@ export function Marquee() {
         <span className="hidden text-[10px] font-semibold tracking-[0.24em] whitespace-nowrap text-ink/45 uppercase sm:block">
           Built on
         </span>
-        <div className="relative flex-1 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]">
-          <div className="animate-marquee flex w-max gap-14">
+        <div className="relative flex-1 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_18%,black_82%,transparent)]">
+          <div className="animate-marquee flex w-max">
             {[...ITEMS, ...ITEMS].map((label, index) => (
               <span
                 key={`${label}-${index}`}
-                className="font-display text-2xl whitespace-nowrap text-ink/35 italic"
+                className="font-display pr-14 text-2xl whitespace-nowrap text-ink/35 italic"
               >
                 {label}
               </span>

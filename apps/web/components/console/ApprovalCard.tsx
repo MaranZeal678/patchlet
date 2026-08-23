@@ -85,7 +85,7 @@ export function ApprovalCard({
         </button>
         <button
           type="button"
-          className="secondary-action"
+          className="danger-action"
           disabled={pending !== null}
           onClick={() => void decide(false)}
         >

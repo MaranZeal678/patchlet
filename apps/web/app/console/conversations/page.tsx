@@ -16,7 +16,7 @@ export default async function ConversationsPage() {
   ]);
 
   return (
-    <>
+    <div className="console-fill">
       <PageHeader
         eyebrow="Observability"
         title="Conversations"
@@ -27,6 +27,6 @@ export default async function ConversationsPage() {
         initialCounts={counts}
         siteUrl={project.siteUrl}
       />
-    </>
+    </div>
   );
 }

@@ -15,9 +15,9 @@ type Mode = "signin" | "signup";
  * this Supabase project confirms addresses by email and nobody would ever get the mail. The route
  * creates the user already confirmed; the password sign-in below is what sets the session cookie.
  */
-export function AuthScreen({ next }: { next: string }) {
+export function AuthScreen({ next, initialMode = "signin" }: { next: string; initialMode?: Mode }) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("signin");
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [company, setCompany] = useState("");

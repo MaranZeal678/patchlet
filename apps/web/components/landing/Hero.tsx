@@ -33,19 +33,21 @@ export function Hero() {
             user is already looking at, and opens the pull request when the feature does not exist.
           </p>
 
+          {/* Both calls stay on the marketing side. The trace this used to link to belongs to a
+              project, so a visitor who has not made one had nothing to watch. */}
           <div className="mt-12 flex flex-wrap items-center justify-center gap-6">
             <Link
-              href="/console"
+              href="/signin?mode=signup"
               className="rounded-full bg-accent-deep px-8 py-4 text-base font-medium text-panel shadow-xl shadow-accent/20 transition-all hover:-translate-y-0.5 hover:bg-accent"
             >
-              Open the console
+              Get started
             </Link>
-            <Link href="/console/activity" className="group inline-flex items-center gap-2 font-semibold text-accent">
-              Watch a live trace
-              <span aria-hidden className="transition-transform group-hover:translate-x-1">
-                &rarr;
+            <a href="#how" className="group inline-flex items-center gap-2 font-semibold text-accent">
+              See how it works
+              <span aria-hidden className="transition-transform group-hover:translate-y-0.5">
+                &darr;
               </span>
-            </Link>
+            </a>
           </div>
         </div>
       </div>

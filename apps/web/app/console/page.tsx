@@ -40,6 +40,7 @@ export default async function ConsoleOverviewPage() {
         title="Overview"
         description="The project this console manages, its embed snippet, and what the agent has been doing."
         actions={
+          // A trace of nothing is not worth opening, so the button waits until there is one.
           hasActivity ? (
             <Link href="/console/activity" className="secondary-action">
               Open the live trace
@@ -54,17 +55,22 @@ export default async function ConsoleOverviewPage() {
           <Stat value={counts.chunks} label="Chunks" />
           <Stat value={outcomes.all} label="Conversations" />
           <Stat value={counts.escalations} label="Escalations" />
-          <div className="stat stat--status">
+          <div
+            className="stat stat--status"
+            title={
+              worker.online
+                ? "The service that drafts the issue and the pull request is running."
+                : worker.lastSeenAt
+                  ? `The service that drafts the issue and the pull request last reported ${formatDateTime(worker.lastSeenAt)}.`
+                  : "The service that drafts the issue and the pull request is not running."
+            }
+          >
             <span className={`stat__dot${worker.online ? "" : " is-off"}`} />
             <span>
               <span className="stat__num block text-[1.05rem]">
-                {worker.online ? "Online" : "Offline"}
+                {worker.online ? "Ready" : "Not running"}
               </span>
-              <span className="stat__label">
-                {worker.online || !worker.lastSeenAt
-                  ? "Worker"
-                  : `Worker, last seen ${formatDateTime(worker.lastSeenAt)}`}
-              </span>
+              <span className="stat__label">Automation</span>
             </span>
           </div>
         </div>

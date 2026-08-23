@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { outcomeLabel, outcomeTone, type ConversationOutcome } from "@/lib/agent/outcome";
 import { formatDateTime, formatDuration } from "@/lib/console/format";
+import { keepInView } from "@/lib/console/keepInView";
 import { ConversationDetailPanel } from "./ConversationDetail";
 
 import type {
@@ -70,6 +71,14 @@ export function ConversationsConsole({
   // Nothing chosen yet means the newest conversation in the current filter.
   const selectedId = chosenId ?? conversations[0]?.id ?? null;
 
+  // On the stacked layout the list is a short strip, so the chosen card can sit outside it after
+  // a filter change. Only the strip is scrolled; the page stays where the reader left it.
+  const listBox = useRef<HTMLDivElement | null>(null);
+  const selectedCard = useRef<HTMLLIElement | null>(null);
+  useEffect(() => {
+    keepInView(listBox.current, selectedCard.current);
+  }, [selectedId, conversations]);
+
   const load = useCallback(async (id: string) => {
     setLoadingDetail(true);
     setDetailError("");
@@ -105,6 +114,20 @@ export function ConversationsConsole({
     };
   }, [selectedId, load]);
 
+  // Before the first question the pills would count nothing four ways, so the page says the
+  // one thing that is true instead.
+  if (counts.all === 0) {
+    return (
+      <div className="empty-state">
+        <p className="empty-state__title">No conversations yet</p>
+        <p className="empty-state__text">
+          Install the widget on your site. Every question the agent handles, how it ended and the
+          guidance it gave appear here.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="filter-row" role="group" aria-label="Filter by outcome">
@@ -133,21 +156,18 @@ export function ConversationsConsole({
 
       {conversations.length === 0 ? (
         <div className="empty-state">
-          <p className="empty-state__title">
-            {counts.all === 0 ? "No conversations yet" : "No conversations match this filter"}
-          </p>
-          <p className="empty-state__text">
-            {counts.all === 0
-              ? "Ask the widget a question on your site. Every conversation, its outcome and the guidance it gave appear here."
-              : "Try another outcome."}
-          </p>
+          <p className="empty-state__title">No conversations match this filter</p>
+          <p className="empty-state__text">Try another outcome.</p>
         </div>
       ) : (
         <div className="activity-grid">
-          <div className="convo-list">
+          <div className="list-column" ref={listBox}>
             <ul className="record-list">
               {conversations.map((conversation) => (
-                <li key={conversation.id}>
+                <li
+                  key={conversation.id}
+                  ref={selectedId === conversation.id ? selectedCard : undefined}
+                >
                   <button
                     type="button"
                     className={`record-card${selectedId === conversation.id ? " is-selected" : ""}`}
@@ -165,7 +185,7 @@ export function ConversationsConsole({
                       {conversation.question ?? "Conversation"}
                     </p>
                     {conversation.pageTitle ? (
-                      <p className="record-card__line">
+                      <p className="record-card__line is-clipped" title={conversation.pageTitle}>
                         <span className="record-card__label">Page</span>
                         {conversation.pageTitle}
                       </p>
