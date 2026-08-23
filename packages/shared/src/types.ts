@@ -66,6 +66,17 @@ export type EscalateRequest = {
   visitorId?: string;
 };
 
+/** How a visitor rated one answer in the widget. */
+export type FeedbackRating = "up" | "down";
+
+/** Body of `POST /api/feedback`. */
+export type FeedbackRequest = {
+  key: string;
+  messageId: string;
+  rating: FeedbackRating;
+  note?: string;
+};
+
 /**
  * Whether the agent offered to report a missing feature.
  *

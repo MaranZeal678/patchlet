@@ -1571,6 +1571,14 @@ body {
   font-weight: 800;
 }
 
+/* What the visitor said about this answer. One quiet line: it is a signal, not a headline. */
+.turn-feedback {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
 /* Durable facts the agent kept about the visitor behind this transcript. */
 .memory-list {
   display: grid;

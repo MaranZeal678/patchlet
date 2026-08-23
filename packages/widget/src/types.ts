@@ -94,6 +94,17 @@ export type EscalationView = {
   createdAt?: string;
 };
 
+/** How a visitor rated one answer. */
+export type FeedbackRating = 'up' | 'down';
+
+/** Body of POST /api/feedback. */
+export type FeedbackRequest = {
+  key: string;
+  messageId: string;
+  rating: FeedbackRating;
+  note?: string;
+};
+
 /** Body of POST /api/chat. */
 export type ChatRequest = {
   key: string;

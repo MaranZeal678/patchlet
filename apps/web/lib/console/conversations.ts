@@ -2,7 +2,7 @@
  * Reads for the Conversations page: a filterable list of what the agent handled, and the full
  * transcript behind any one of them.
  */
-import type { FeatureRequest, ProbeResult, Step, Verdict } from "@patchlet/shared";
+import type { FeatureRequest, FeedbackRating, ProbeResult, Step, Verdict } from "@patchlet/shared";
 import {
   CONVERSATION_OUTCOMES,
   outcomeFromTurns,
@@ -39,6 +39,9 @@ export type ConversationSummary = {
   escalation: ConversationEscalation | null;
 };
 
+/** What the visitor said about one answer, straight from the widget. */
+export type TurnFeedback = { rating: FeedbackRating; note: string | null };
+
 export type ConversationTurn = {
   id: string;
   role: string;
@@ -48,6 +51,7 @@ export type ConversationTurn = {
   probes: ProbeResult[] | null;
   verdict: Verdict | null;
   featureRequest: FeatureRequest | null;
+  feedback: TurnFeedback | null;
 };
 
 export type ConversationDetail = ConversationSummary & {
@@ -100,7 +104,26 @@ function toTurn(row: Record<string, unknown>): ConversationTurn {
     probes: (row.probes ?? null) as ProbeResult[] | null,
     verdict: (row.verdict ?? null) as Verdict | null,
     featureRequest: (row.feature_request ?? null) as FeatureRequest | null,
+    feedback: null,
   };
+}
+
+/** The rating a visitor left on each of these messages, keyed by message id. */
+async function feedbackByMessage(ids: string[]): Promise<Map<string, TurnFeedback>> {
+  const found = new Map<string, TurnFeedback>();
+  if (ids.length === 0) return found;
+
+  const { data } = await serviceClient()
+    .from("message_feedback")
+    .select("message_id, rating, note")
+    .in("message_id", ids);
+
+  for (const row of data ?? []) {
+    const rating = String(row.rating);
+    if (rating !== "up" && rating !== "down") continue;
+    found.set(String(row.message_id), { rating, note: text(row.note) });
+  }
+  return found;
 }
 
 /** The two fields the outcome rule reads, from a message row of either shape. */
@@ -297,7 +320,9 @@ export async function loadConversationDetail(
     .eq("conversation_id", id)
     .order("created_at", { ascending: true });
 
-  const turns = (messages ?? []).map((message) => toTurn(message as Record<string, unknown>));
+  const rows = (messages ?? []).map((message) => toTurn(message as Record<string, unknown>));
+  const ratings = await feedbackByMessage(rows.map((turn) => turn.id));
+  const turns = rows.map((turn) => ({ ...turn, feedback: ratings.get(turn.id) ?? null }));
   const escalation = (await escalationsByConversation([id])).get(id) ?? null;
   const memory = await loadVisitorFacts(projectId, text(row.visitor_id));
 
