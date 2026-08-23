@@ -7,7 +7,21 @@ export class VoicePlayer {
   private abort: AbortController | null = null;
   private objectUrl: string | null = null;
 
-  constructor(private readonly onStateChange: (speaking: boolean) => void) {}
+  /**
+   * `onFinished` fires once per `play`, when the clip ends or when it could not play at all.
+   * A call listens for it to know when it is its turn to listen again, so it must never be
+   * skipped on a failure: a silent hang is worse than a missing sentence.
+   */
+  constructor(
+    private readonly onStateChange: (speaking: boolean) => void,
+    private readonly onFinished: () => void = () => undefined,
+  ) {}
+
+  /**
+   * Identifies the clip that is playing. Every callback checks it before reporting, so a clip
+   * that was superseded or deliberately stopped cannot announce an ending that already passed.
+   */
+  private token = 0;
 
   get speaking(): boolean {
     return Boolean(this.audio && !this.audio.paused && !this.audio.ended);
@@ -15,25 +29,43 @@ export class VoicePlayer {
 
   async play(fetchAudio: (signal: AbortSignal) => Promise<Response>): Promise<void> {
     this.stop();
+    const token = (this.token += 1);
+    const finish = () => {
+      if (token !== this.token) return;
+      this.token += 1;
+      this.onFinished();
+    };
     const controller = new AbortController();
     this.abort = controller;
     try {
       const response = await fetchAudio(controller.signal);
-      if (!response.body) return;
+      if (!response.body) {
+        finish();
+        return;
+      }
       const audio = new Audio();
       this.audio = audio;
-      audio.addEventListener('ended', () => this.onStateChange(false));
+      audio.addEventListener('ended', () => {
+        this.onStateChange(false);
+        finish();
+      });
+      audio.addEventListener('error', () => finish());
       audio.addEventListener('pause', () => this.onStateChange(this.speaking));
 
       if (canStream()) await this.playStreaming(audio, response.body, controller.signal);
       else await this.playBuffered(audio, response);
       this.onStateChange(true);
     } catch (error) {
-      if ((error as Error)?.name !== 'AbortError') this.onStateChange(false);
+      if ((error as Error)?.name !== 'AbortError') {
+        this.onStateChange(false);
+        finish();
+      }
     }
   }
 
+  /** Silences whatever is playing. Deliberate, so it reports no ending. */
   stop(): void {
+    this.token += 1;
     this.abort?.abort();
     this.abort = null;
     if (this.audio) {

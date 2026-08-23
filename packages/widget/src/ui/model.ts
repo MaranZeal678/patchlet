@@ -1,4 +1,13 @@
-import type { EscalationOffer, EscalationView, ProbeName, ProbeResult, ReportBlock, Step, Verdict } from '../types';
+import type {
+  EscalationOffer,
+  EscalationView,
+  FeedbackRating,
+  ProbeName,
+  ProbeResult,
+  ReportBlock,
+  Step,
+  Verdict,
+} from '../types';
 
 export type ProbeState = { status: 'pending' | 'running' | 'done'; result?: ProbeResult };
 
@@ -19,14 +28,8 @@ export type Turn = {
   reportBlocked?: ReportBlock;
   escalationId?: string;
   escalation?: EscalationView;
-};
-
-export const PROBE_ORDER: ProbeName[] = ['docs', 'interface', 'repository'];
-
-export const PROBE_LABELS: Record<ProbeName, string> = {
-  docs: 'Documentation',
-  interface: 'This page',
-  repository: 'Repository',
+  /** Set once the visitor has said whether this answer helped. */
+  rating?: FeedbackRating;
 };
 
 export function newTurn(id: string, question: string): Turn {

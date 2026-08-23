@@ -74,6 +74,7 @@ const SHEET = `
 /* Launcher */
 .pl-launcher {
   appearance: none;
+  position: relative;
   width: 62px;
   height: 62px;
   border-radius: 999px;
@@ -99,6 +100,17 @@ const SHEET = `
 .pl-launcher[aria-expanded="true"] { background: var(--pl-accent); }
 .pl-launcher:focus-visible { outline: 2px solid var(--pl-accent); outline-offset: 3px; }
 .pl-launcher svg { width: 26px; height: 26px; display: block; }
+/* One small mark, no count: the panel is one conversation, so a number would always read "1". */
+.pl-launcher__dot {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #fffdf7;
+  box-shadow: 0 0 0 2px var(--pl-accent-deep);
+}
 
 /* Panel */
 .pl-panel {
@@ -157,6 +169,8 @@ const SHEET = `
   line-height: 1.15;
 }
 .pl-header__sub { font-size: 12px; color: var(--pl-muted); margin: 2px 0 0; }
+.pl-header__text { min-width: 0; }
+.pl-header__text p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pl-header__spacer { flex: 1; }
 
 .pl-icon-btn {
@@ -217,27 +231,6 @@ const SHEET = `
   line-height: 1.45;
 }
 
-/* Probe strip */
-.pl-probes { display: flex; gap: 6px; align-self: stretch; }
-.pl-pill {
-  flex: 1;
-  min-width: 0;
-  border: 1px solid var(--pl-hairline);
-  background: var(--pl-bubble);
-  border-radius: 11px;
-  padding: 7px 9px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.pl-pill__name { font-size: 11px; font-weight: 600; letter-spacing: 0.01em; }
-.pl-pill__state { font-size: 11px; color: var(--pl-muted); display: flex; align-items: center; gap: 5px; }
-.pl-pill--running { border-color: color-mix(in srgb, var(--pl-accent) 35%, transparent); }
-.pl-pill--running .pl-pill__state { color: var(--pl-accent); }
-.pl-dot { width: 5px; height: 5px; border-radius: 999px; background: currentColor; }
-.pl-pill--running .pl-dot { animation: pl-pulse 1.1s ease-in-out infinite; }
-@keyframes pl-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
-
 /* Cards */
 .pl-card {
   align-self: stretch;
@@ -273,6 +266,109 @@ const SHEET = `
 .pl-btn--accent { background: var(--pl-accent-deep); border-color: transparent; color: #fffdf7; }
 .pl-btn--accent:hover { background: var(--pl-accent); }
 .pl-btn--quiet { background: transparent; color: var(--pl-muted); }
+.pl-btn svg { width: 15px; height: 15px; flex: none; }
+.pl-btn--call,
+.pl-btn--end {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 6px 11px;
+  white-space: nowrap;
+}
+.pl-btn--call { background: color-mix(in srgb, var(--pl-accent) 13%, transparent); border-color: color-mix(in srgb, var(--pl-accent) 30%, transparent); color: var(--pl-accent-deep); }
+.pl-btn--call:hover { background: color-mix(in srgb, var(--pl-accent) 20%, transparent); }
+:host([data-pl-scheme="dark"]) .pl-btn--call { color: var(--pl-ink); }
+.pl-btn--end { background: #b3261e; border-color: transparent; color: #fffdf7; }
+.pl-btn--end:hover { background: #c9372f; }
+
+/* The working state: three dots and one honest line about what is happening. */
+.pl-thinking {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  border-radius: 14px;
+  background: var(--pl-bubble);
+  border: 1px solid var(--pl-hairline);
+  max-width: 88%;
+}
+.pl-thinking__line { font-size: 12.5px; color: var(--pl-muted); }
+.pl-typing { display: inline-flex; gap: 4px; flex: none; }
+.pl-typing span {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--pl-accent);
+  opacity: 0.35;
+  animation: pl-typing 1.25s ease-in-out infinite;
+}
+.pl-typing span:nth-child(2) { animation-delay: 0.16s; }
+.pl-typing span:nth-child(3) { animation-delay: 0.32s; }
+@keyframes pl-typing { 0%, 60%, 100% { opacity: 0.3; transform: none; } 30% { opacity: 1; transform: translateY(-2px); } }
+
+/* Copy and rating, quiet until the pointer is on them. */
+.pl-answer-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  padding-top: 9px;
+  border-top: 1px solid var(--pl-hairline);
+}
+.pl-answer-actions__spacer { flex: 1; }
+.pl-answer-actions__thanks { font-size: 11.5px; color: var(--pl-muted); }
+.pl-mini {
+  appearance: none;
+  font: inherit;
+  font-size: 11.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: transparent;
+  color: var(--pl-muted);
+  border-radius: 8px;
+  padding: 4px 7px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.pl-mini:hover:not(:disabled) { background: var(--pl-field); color: var(--pl-ink); }
+.pl-mini:focus-visible { outline: 2px solid var(--pl-accent); outline-offset: 2px; }
+.pl-mini:disabled { opacity: 0.4; cursor: default; }
+.pl-mini svg { width: 14px; height: 14px; }
+.pl-mini--icon { padding: 5px; }
+
+/* Call bar, in the composer's place */
+.pl-call {
+  border-top: 1px solid var(--pl-hairline);
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pl-call__state { flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; }
+.pl-call__body { min-width: 0; display: flex; flex-direction: column; }
+.pl-call__label { font-size: 13px; font-weight: 550; }
+.pl-call__transcript {
+  font-size: 11.5px;
+  color: var(--pl-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pl-call__pulse {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--pl-accent);
+  animation: pl-pulse 1.4s ease-in-out infinite;
+}
+.pl-call__pulse--thinking { animation-duration: 0.9s; }
+.pl-call__pulse--speaking { animation: none; opacity: 1; }
+.pl-call__pulse--muted { animation: none; background: var(--pl-muted); opacity: 0.5; }
 
 /* Escalation timeline */
 .pl-timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -433,7 +529,9 @@ const SHEET = `
 @media (prefers-reduced-motion: reduce) {
   .pl-panel { animation: none; }
   .pl-launcher, .pl-btn, .pl-spot__bubble, .pl-spot__ring, .pl-spot__scrim { transition: none; }
-  .pl-pill--running .pl-dot { animation: none; opacity: 1; }
+  .pl-typing span { animation: none; opacity: 0.75; }
+  .pl-call__pulse { animation: none; opacity: 1; }
+  .pl-mini { transition: none; }
 }
 `;
 

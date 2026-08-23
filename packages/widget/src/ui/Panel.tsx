@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
-import { CloseIcon, SpeakerIcon } from './icons';
+import { CloseIcon, PhoneIcon, SpeakerIcon } from './icons';
 
 const FOCUSABLE = 'button:not([disabled]), a[href], textarea:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -8,6 +8,7 @@ export function Panel({
   title,
   subtitle,
   speaking,
+  onCall,
   onStopSpeaking,
   onClose,
   onEscape,
@@ -16,6 +17,8 @@ export function Panel({
   title: string;
   subtitle: string;
   speaking: boolean;
+  /** Absent during a call: the call bar owns leaving it. */
+  onCall?: () => void;
   onStopSpeaking: () => void;
   onClose: () => void;
   onEscape: () => void;
@@ -57,11 +60,17 @@ export function Panel({
   return (
     <div class="pl-panel" role="dialog" aria-label={title} ref={panel}>
       <header class="pl-header">
-        <div>
+        <div class="pl-header__text">
           <p class="pl-header__title">{title}</p>
           <p class="pl-header__sub">{subtitle}</p>
         </div>
         <span class="pl-header__spacer" />
+        {onCall && (
+          <button type="button" class="pl-btn pl-btn--call" onClick={onCall}>
+            <PhoneIcon />
+            <span>Start a call</span>
+          </button>
+        )}
         {speaking && (
           <button type="button" class="pl-icon-btn" aria-label="Stop speaking" onClick={onStopSpeaking}>
             <SpeakerIcon />

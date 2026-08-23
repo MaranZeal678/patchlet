@@ -12,6 +12,22 @@ export class VoiceRecorder {
     );
   }
 
+  /**
+   * Whether the microphone is already granted for this origin.
+   *
+   * Only used to decide if a call may pick itself back up after a page load: asking for the
+   * microphone with no click behind it would either be refused or pop a prompt nobody asked for.
+   * Browsers that cannot answer count as no.
+   */
+  static async alreadyAllowed(): Promise<boolean> {
+    try {
+      const status = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+      return status.state === 'granted';
+    } catch {
+      return false;
+    }
+  }
+
   get recording(): boolean {
     return this.recorder?.state === 'recording';
   }

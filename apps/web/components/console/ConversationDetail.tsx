@@ -163,6 +163,15 @@ function TranscriptRow({
         </>
       ) : null}
 
+      {turn.feedback ? (
+        <p className="turn-feedback">
+          {turn.feedback.rating === "up"
+            ? "The visitor said this answer helped"
+            : "The visitor said this answer did not help"}
+          {turn.feedback.note ? `: ${turn.feedback.note}` : "."}
+        </p>
+      ) : null}
+
       {request ? (
         <div className="request-card">
           <h4>{request.title}</h4>

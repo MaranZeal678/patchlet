@@ -1,17 +1,21 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'preact/hooks';
 import type { ApiClient } from '../api/client';
 import { GuideMachine, type GuideSnapshot } from '../guide/machine';
 import { Spotlight } from '../guide/spotlight';
 import { watchPage } from '../guide/navigation';
 import { scanAffordances, type ScanResult } from '../scan/affordances';
-import type { ChatEvent, EscalationStatus, EscalationView, Step } from '../types';
+import type { ChatEvent, EscalationStatus, EscalationView, FeedbackRating, Step } from '../types';
 import { VoicePlayer } from '../voice/player';
 import { VoiceRecorder } from '../voice/recorder';
+import { CallBar } from './CallBar';
 import { Composer } from './Composer';
 import { Launcher } from './Launcher';
 import { MessageList } from './MessageList';
 import { Panel } from './Panel';
+import { CALL_OFF, callReducer, shouldListen } from './call';
 import { newTurn, type Turn } from './model';
+import { rememberCall, wasInCall } from './session';
+import { advanceTowards, FIRST_STAGE, nextStage, STAGE_DWELL_MS, type WorkStage } from './status';
 
 export type PatchletApi = {
   open: () => void;
@@ -45,11 +49,21 @@ export function App({ client, shadow, host, position, register }: AppProps) {
   const [busy, setBusy] = useState(false);
   const [guidingTurnId, setGuidingTurnId] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState('');
-  const [voiceOn, setVoiceOn] = useState(false);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [unread, setUnread] = useState(false);
+  const [focusToken, setFocusToken] = useState(0);
+
+  // The turn still waiting for its answer, and how far along the agent said it was.
+  const [workingTurnId, setWorkingTurnId] = useState<string | null>(null);
+  const [stage, setStage] = useState<WorkStage>(FIRST_STAGE);
+  const [shownStage, setShownStage] = useState<WorkStage>(FIRST_STAGE);
+  const [workingMs, setWorkingMs] = useState(0);
+
+  const [call, dispatchCall] = useReducer(callReducer, CALL_OFF);
+  const [transcript, setTranscript] = useState('');
 
   const scanRef = useRef<ScanResult | null>(null);
   const conversationRef = useRef<string | undefined>(undefined);
@@ -57,8 +71,18 @@ export function App({ client, shadow, host, position, register }: AppProps) {
   const spotlightRef = useRef<Spotlight | null>(null);
   const guidedRef = useRef<{ turnId: string; question: string } | null>(null);
   const counterRef = useRef(0);
+  const messageScroll = useRef(-1);
+  const callRef = useRef(call);
+  callRef.current = call;
+
   const recorder = useMemo(() => new VoiceRecorder(), []);
-  const player = useMemo(() => new VoicePlayer(setSpeaking), []);
+  // The player has no idea a call exists; it only reports that a clip ended, and the call
+  // machine decides what that means.
+  const spokenRef = useRef<() => void>(() => undefined);
+  const player = useMemo(() => new VoicePlayer(setSpeaking, () => spokenRef.current()), []);
+  spokenRef.current = () => {
+    if (callRef.current.active) dispatchCall({ type: 'spoke' });
+  };
 
   const scan = useCallback(
     (question: string): ScanResult => scanAffordances({ question, exclude: host }),
@@ -175,6 +199,11 @@ export function App({ client, shadow, host, position, register }: AppProps) {
     [ensureGuide],
   );
 
+  const openRef = useRef(open);
+  openRef.current = open;
+  const stageRef = useRef(stage);
+  stageRef.current = stage;
+
   const ask = useCallback(
     async (question: string) => {
       const text = question.trim();
@@ -186,6 +215,10 @@ export function App({ client, shadow, host, position, register }: AppProps) {
       const id = `t${(counterRef.current += 1)}`;
       let turn = newTurn(id, text);
       setTurns((current) => [...current, turn]);
+      setWorkingTurnId(id);
+      setStage(FIRST_STAGE);
+      setShownStage(FIRST_STAGE);
+      setWorkingMs(0);
 
       const commit = (next: Turn) => {
         turn = next;
@@ -204,21 +237,38 @@ export function App({ client, shadow, host, position, register }: AppProps) {
           page: fresh.page,
           conversationId: conversationRef.current,
           onEvent: (event) => {
+            setStage((current) => nextStage(current, event));
             commit(applyEvent(turn, event, conversationRef));
             // The stream stays open past the answer while the agent files its
-            // own bookkeeping. Guidance starts on the answer, not on the close.
+            // own bookkeeping. Everything the user sees happens on the answer,
+            // not on the close.
             if (event.type !== 'answer') return;
+            setWorkingTurnId(null);
+            if (!openRef.current) setUnread(true);
             if (event.steps?.length) startGuidance(turn);
-            if (voiceOn) void player.play((signal) => client.speak(event.text, signal));
+            // Only a call speaks. In text mode the answer is read, not heard.
+            if (callRef.current.active) {
+              const spoken = event.text;
+              dispatchCall({ type: 'answered' });
+              void player.play((signal) => client.speak(spoken, signal));
+            } else {
+              // Put the caret back where the next question is typed.
+              setFocusToken((value) => value + 1);
+            }
           },
         });
       } catch {
         commit({ ...turn, error: 'The support service is not reachable right now.' });
       } finally {
+        setWorkingTurnId(null);
         setBusy(false);
+        // A turn that produced no answer must not leave the call waiting on one.
+        if (callRef.current.active && callRef.current.phase === 'thinking') {
+          dispatchCall({ type: 'unheard' });
+        }
       }
     },
-    [busy, client, ensureGuide, patch, player, scan, startGuidance, voiceOn],
+    [busy, client, ensureGuide, patch, player, scan, startGuidance],
   );
 
   const report = useCallback(
@@ -252,6 +302,19 @@ export function App({ client, shadow, host, position, register }: AppProps) {
     [client, patch],
   );
 
+  /** Records a thumbs up or down. Shown immediately, taken back only if the write failed. */
+  const rate = useCallback(
+    async (turn: Turn, rating: FeedbackRating) => {
+      const messageId = turn.messageId;
+      if (!messageId || turn.rating) return;
+      patch(turn.id, (current) => ({ ...current, rating }));
+      setAnnouncement('Thank you for the feedback.');
+      const stored = await client.feedback(messageId, rating);
+      if (!stored) patch(turn.id, (current) => ({ ...current, rating: undefined }));
+    },
+    [client, patch],
+  );
+
   // A quiet elapsed counter, only while a report is still moving.
   useEffect(() => {
     const active = turns.some((turn) => turn.escalation && !TERMINAL.has(turn.escalation.status));
@@ -260,16 +323,86 @@ export function App({ client, shadow, host, position, register }: AppProps) {
     return () => clearInterval(timer);
   }, [turns]);
 
+  // How long the turn in flight has taken, so the status line can admit when it is slow.
+  useEffect(() => {
+    if (!workingTurnId) return;
+    const started = Date.now();
+    const timer = setInterval(() => setWorkingMs(Date.now() - started), 500);
+    return () => clearInterval(timer);
+  }, [workingTurnId]);
+
+  // The line walks towards whatever the events have already reported, one readable step at a time.
+  useEffect(() => {
+    if (!workingTurnId) return;
+    const timer = setInterval(
+      () => setShownStage((current) => advanceTowards(current, stageRef.current)),
+      STAGE_DWELL_MS,
+    );
+    return () => clearInterval(timer);
+  }, [workingTurnId]);
+
+  useEffect(() => {
+    if (open) setUnread(false);
+  }, [open]);
+
+  const endCall = useCallback(() => {
+    dispatchCall({ type: 'end' });
+    rememberCall(false);
+    recorder.cancel();
+    setRecording(false);
+    player.stop();
+    setTranscript('');
+    setFocusToken((value) => value + 1);
+  }, [player, recorder]);
+
+  const startCall = useCallback(() => {
+    if (!VoiceRecorder.supported) {
+      setAnnouncement('This browser cannot use the microphone.');
+      return;
+    }
+    setOpen(true);
+    setTranscript('');
+    dispatchCall({ type: 'start' });
+    rememberCall(true);
+    setAnnouncement('The call has started. Speak when you are ready.');
+  }, []);
+
+  /** Closing the panel is also hanging up: audio the user cannot see must not keep playing. */
+  const closePanel = useCallback(() => {
+    if (callRef.current.active) endCall();
+    setOpen(false);
+  }, [endCall]);
+
+  // The call was on when this page was left, so pick it back up where it was. Only when the
+  // microphone is already granted: a call that opens the panel and then cannot listen is worse
+  // than one that quietly ends with the navigation.
+  useEffect(() => {
+    if (!wasInCall() || !VoiceRecorder.supported) return;
+    let cancelled = false;
+    void VoiceRecorder.alreadyAllowed().then((allowed) => {
+      if (cancelled) return;
+      if (!allowed) {
+        rememberCall(false);
+        return;
+      }
+      setOpen(true);
+      dispatchCall({ type: 'start' });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Escape stops guidance first, then closes the panel, even when focus is on the host page.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       if (guidedRef.current) stopGuidance();
-      else if (open) setOpen(false);
+      else if (openRef.current) closePanel();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [open, stopGuidance]);
+  }, [closePanel, stopGuidance]);
 
   useEffect(() => {
     register({
@@ -283,26 +416,40 @@ export function App({ client, shadow, host, position, register }: AppProps) {
     machineRef.current?.dispose();
     spotlightRef.current?.destroy();
     player.stop();
-  }, [player]);
+    recorder.cancel();
+  }, [player, recorder]);
 
   /** Ends the turn: transcribe what was captured and ask it. */
   const finishRecording = useCallback(async () => {
     setRecording(false);
+    let audio: Blob | null = null;
+    try {
+      audio = await recorder.stop();
+    } catch {
+      audio = null;
+    }
+    // Only now is the capture safely out of the recorder, so the call may move on.
+    if (callRef.current.active) dispatchCall({ type: 'heard' });
+
     setTranscribing(true);
     try {
-      const audio = await recorder.stop();
-      if (audio) {
-        const text = await client.transcribe(audio);
-        if (text) {
-          // Show the words back before sending, so a mishearing is visible.
-          setDraft(text);
-          void ask(text);
-        } else {
-          setAnnouncement('I did not catch that. Try again.');
-        }
+      if (!audio) {
+        if (callRef.current.active) dispatchCall({ type: 'unheard' });
+        return;
+      }
+      const text = await client.transcribe(audio);
+      if (text) {
+        // Show the words back before sending, so a mishearing is visible.
+        setTranscript(text);
+        setDraft(text);
+        void ask(text);
+      } else {
+        setAnnouncement('I did not catch that. Try again.');
+        if (callRef.current.active) dispatchCall({ type: 'unheard' });
       }
     } catch {
       setAnnouncement('The microphone is not available.');
+      if (callRef.current.active) dispatchCall({ type: 'unheard' });
     } finally {
       setTranscribing(false);
     }
@@ -310,6 +457,29 @@ export function App({ client, shadow, host, position, register }: AppProps) {
 
   const finishRef = useRef(finishRecording);
   finishRef.current = finishRecording;
+
+  // The microphone follows the call machine: it listens whenever the call says it should,
+  // and it is released the moment that stops being true.
+  useEffect(() => {
+    if (!shouldListen(call)) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        await recorder.start(() => void finishRef.current());
+        if (cancelled) recorder.cancel();
+        else setRecording(true);
+      } catch {
+        setAnnouncement('Microphone access was declined.');
+        dispatchCall({ type: 'end' });
+        rememberCall(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      recorder.cancel();
+      setRecording(false);
+    };
+  }, [call, recorder]);
 
   // One press starts listening. It ends on a pause in speech, or on a second
   // press, which is what people already expect from a phone keyboard.
@@ -319,13 +489,19 @@ export function App({ client, shadow, host, position, register }: AppProps) {
       return;
     }
     try {
-      setVoiceOn(true);
       await recorder.start(() => void finishRef.current());
       setRecording(true);
     } catch {
       setAnnouncement('Microphone access was declined.');
     }
   }, [finishRecording, recorder, recording]);
+
+  // The call bar already says Listening or Thinking; the header only frames it.
+  const subtitle = call.active
+    ? 'On a call'
+    : busy
+      ? 'Working on it'
+      : 'We can show you on this page';
 
   return (
     <div class="pl-root" data-position={position}>
@@ -336,39 +512,49 @@ export function App({ client, shadow, host, position, register }: AppProps) {
       {open && (
         <Panel
           title="Support"
-          subtitle={busy ? 'Checking' : 'We can show you on this page'}
-          speaking={speaking}
+          subtitle={subtitle}
+          speaking={speaking && !call.active}
+          onCall={call.active || !VoiceRecorder.supported ? undefined : startCall}
           onStopSpeaking={() => player.stop()}
-          onClose={() => setOpen(false)}
-          onEscape={() => (guidedRef.current ? stopGuidance() : setOpen(false))}
+          onClose={closePanel}
+          onEscape={() => (guidedRef.current ? stopGuidance() : closePanel())}
         >
           <MessageList
             turns={turns}
+            workingTurnId={workingTurnId}
+            stage={shownStage}
+            workingMs={workingMs}
             guidingTurnId={guidingTurnId}
             elapsedSeconds={elapsedSeconds}
+            scroll={messageScroll}
             onShowMe={startGuidance}
             onReport={(turn) => void report(turn)}
+            onRate={(turn, rating) => void rate(turn, rating)}
           />
-          <Composer
-            value={draft}
-            busy={busy}
-            voiceOn={voiceOn}
-            voiceSupported={VoiceRecorder.supported}
-            recording={recording}
-            transcribing={transcribing}
-            autoFocus={guidingTurnId === null}
-            onInput={setDraft}
-            onSubmit={() => void ask(draft)}
-            onToggleVoice={() => {
-              setVoiceOn(true);
-              setAnnouncement('Voice is on. Click the microphone to record.');
-            }}
-            onToggleRecording={() => void toggleRecording()}
-          />
+          {call.active ? (
+            <CallBar
+              state={call}
+              transcript={transcript}
+              onToggleMute={() => dispatchCall({ type: 'toggleMute' })}
+              onEnd={endCall}
+            />
+          ) : (
+            <Composer
+              value={draft}
+              busy={busy}
+              voiceSupported={VoiceRecorder.supported}
+              recording={recording}
+              transcribing={transcribing}
+              focusToken={focusToken}
+              onInput={setDraft}
+              onSubmit={() => void ask(draft)}
+              onToggleRecording={() => void toggleRecording()}
+            />
+          )}
         </Panel>
       )}
 
-      <Launcher open={open} onClick={() => setOpen((value) => !value)} />
+      <Launcher open={open} unread={unread} onClick={() => (open ? closePanel() : setOpen(true))} />
     </div>
   );
 }

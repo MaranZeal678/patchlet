@@ -1,6 +1,14 @@
 import { SseDecoder, toChatEvent } from './sse';
 import { visitorId } from './visitor';
-import type { ChatEvent, ChatRequest, EscalationView, PageContext, ReportBlock } from '../types';
+import type {
+  ChatEvent,
+  ChatRequest,
+  EscalationView,
+  FeedbackRating,
+  FeedbackRequest,
+  PageContext,
+  ReportBlock,
+} from '../types';
 
 /** Reporting either starts, or is refused for a reason the widget can explain. */
 export type EscalateResult =
@@ -81,6 +89,22 @@ export class ApiClient {
     const response = await fetch(this.url(`/api/escalations/${encodeURIComponent(id)}?key=${encodeURIComponent(this.config.key)}`));
     if (!response.ok) throw new Error(`Could not read the report status (${response.status})`);
     return (await response.json()) as EscalationView;
+  }
+
+  /** Records whether one answer helped. Best effort: a failed rating never interrupts the chat. */
+  async feedback(messageId: string, rating: FeedbackRating, note?: string): Promise<boolean> {
+    const body: FeedbackRequest = { key: this.config.key, messageId, rating };
+    if (note) body.note = note;
+    try {
+      const response = await fetch(this.url('/api/feedback'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
   }
 
   async transcribe(audio: Blob): Promise<string> {

@@ -1,4 +1,12 @@
-import type { EscalationStatus, EscalationView, FeatureRequest, ReportBlock } from '../types';
+import { AnswerActions } from './AnswerActions';
+import { useReveal } from './reveal';
+import type {
+  EscalationStatus,
+  EscalationView,
+  FeatureRequest,
+  FeedbackRating,
+  ReportBlock,
+} from '../types';
 
 /** Why the offer could not be taken up. This is what the user reads, so it says who is missing what. */
 const BLOCKED_COPY: Record<ReportBlock, string> = {
@@ -17,7 +25,10 @@ export function AbsenceCard({
   reporting,
   blocked,
   elapsedSeconds,
+  rating,
+  canRate,
   onReport,
+  onRate,
 }: {
   text: string;
   /** Absent when the agent never offered, so there is no drafted title to name. */
@@ -26,12 +37,18 @@ export function AbsenceCard({
   reporting?: boolean;
   blocked?: ReportBlock;
   elapsedSeconds: number;
+  rating?: FeedbackRating;
+  canRate: boolean;
   onReport: () => void;
+  onRate: (rating: FeedbackRating) => void;
 }) {
+  const shown = useReveal(text);
+  const settled = shown === text;
+
   return (
     <div class="pl-card">
-      <p>{text}</p>
-      {!escalation && !blocked && request && (
+      <p>{shown}</p>
+      {settled && !escalation && !blocked && request && (
         <div class="pl-card__actions">
           <button type="button" class="pl-btn pl-btn--accent" onClick={onReport} disabled={reporting}>
             {reporting ? 'Reporting' : 'Report to developers'}
@@ -39,8 +56,9 @@ export function AbsenceCard({
           <span class="pl-card__label">{request.title}</span>
         </div>
       )}
-      {!escalation && blocked && <p class="pl-card__note">{BLOCKED_COPY[blocked]}</p>}
+      {settled && !escalation && blocked && <p class="pl-card__note">{BLOCKED_COPY[blocked]}</p>}
       {escalation && <Timeline escalation={escalation} elapsedSeconds={elapsedSeconds} />}
+      {settled && <AnswerActions text={text} rating={rating} canRate={canRate} onRate={onRate} />}
     </div>
   );
 }

@@ -4,14 +4,13 @@ import { MicIcon, SendIcon } from './icons';
 export type ComposerProps = {
   value: string;
   busy: boolean;
-  voiceOn: boolean;
   voiceSupported: boolean;
   recording: boolean;
   transcribing: boolean;
-  autoFocus: boolean;
+  /** Bumped after every answer, to put the caret back where the next question is typed. */
+  focusToken: number;
   onInput: (value: string) => void;
   onSubmit: () => void;
-  onToggleVoice: () => void;
   onToggleRecording: () => void;
 };
 
@@ -20,8 +19,8 @@ export function Composer(props: ComposerProps) {
   const [height, setHeight] = useState(0);
 
   useEffect(() => {
-    if (props.autoFocus) field.current?.focus();
-  }, [props.autoFocus]);
+    field.current?.focus();
+  }, [props.focusToken]);
 
   useEffect(() => {
     const node = field.current;
@@ -32,11 +31,9 @@ export function Composer(props: ComposerProps) {
     setHeight(node.scrollHeight);
   }, [props.value]);
 
-  const micLabel = props.voiceOn
-    ? props.recording
-      ? 'Stop recording'
-      : 'Record a question'
-    : 'Voice is available. Click to turn it on.';
+  // The microphone here is dictation and nothing more: it types for you, and the answer
+  // still comes back as text. Speaking out loud is what a call is for.
+  const micLabel = props.recording ? 'Stop and send' : 'Dictate a question';
 
   return (
     <form
@@ -52,7 +49,9 @@ export function Composer(props: ComposerProps) {
           rows={1}
           data-height={height}
           value={props.value}
-          placeholder={props.transcribing ? 'Transcribing...' : 'Ask a question'}
+          placeholder={
+            props.transcribing ? 'Transcribing...' : props.recording ? 'Listening...' : 'Ask a question'
+          }
           aria-label="Ask a question"
           disabled={props.transcribing}
           onInput={(event) => props.onInput((event.currentTarget as HTMLTextAreaElement).value)}
@@ -67,7 +66,7 @@ export function Composer(props: ComposerProps) {
           <button
             type="button"
             class="pl-icon-btn"
-            aria-pressed={props.voiceOn}
+            aria-pressed={props.recording}
             aria-label={micLabel}
             title={micLabel}
             onClick={() => props.onToggleRecording()}
