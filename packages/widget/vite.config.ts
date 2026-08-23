@@ -1,22 +1,21 @@
-import { defineConfig } from "vite";
+import { defineConfig } from 'vite';
 
-/**
- * One self-contained IIFE. Customers add it with a single script tag, so it must not assume a
- * module loader, and nothing may be left as an external import.
- */
 export default defineConfig({
+  esbuild: { jsx: 'automatic', jsxImportSource: 'preact' },
+  define: { 'process.env.NODE_ENV': '"production"' },
   build: {
+    target: 'es2020',
+    minify: 'esbuild',
+    cssCodeSplit: false,
+    emptyOutDir: true,
     lib: {
-      entry: "src/index.ts",
-      formats: ["iife"],
-      name: "PatchletWidget",
-      fileName: () => "patchlet.js",
+      entry: 'src/loader.tsx',
+      name: 'PatchletWidget',
+      formats: ['iife'],
+      fileName: () => 'patchlet.js',
     },
     rollupOptions: {
       output: { inlineDynamicImports: true },
     },
-    target: "es2020",
-    minify: "esbuild",
-    emptyOutDir: true,
   },
 });
