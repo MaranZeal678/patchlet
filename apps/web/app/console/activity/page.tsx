@@ -1,9 +1,17 @@
 import { ActivityConsole } from "@/components/console/ActivityConsole";
 import { PageHeader } from "@/components/PageHeader";
+import { loadProject } from "@/lib/console/project";
+import { loadConversations, loadEscalations } from "@/lib/console/records";
 
 export const dynamic = "force-dynamic";
 
-export default function ActivityPage() {
+export default async function ActivityPage() {
+  const project = await loadProject();
+  // The first paint carries the two lists already, so the demo never opens on a spinner.
+  const [escalations, conversations] = project
+    ? await Promise.all([loadEscalations(project.id), loadConversations(project.id, 40)])
+    : [[], []];
+
   return (
     <>
       <PageHeader
@@ -11,7 +19,7 @@ export default function ActivityPage() {
         title="The live trace"
         description="Every check, decision and artefact, streamed from the agent and the worker as it happens."
       />
-      <ActivityConsole />
+      <ActivityConsole initialEscalations={escalations} initialConversations={conversations} />
     </>
   );
 }

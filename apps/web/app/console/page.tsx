@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CopyButton } from "@/components/CopyButton";
 import { PageHeader } from "@/components/PageHeader";
-import { loadCounts, loadWorkerHeartbeat } from "@/lib/console/counts";
+import { loadCounts, loadWorkerStatus } from "@/lib/console/counts";
 import { embedSnippet, loadProject } from "@/lib/console/project";
 
 export const dynamic = "force-dynamic";
@@ -24,11 +24,10 @@ export default async function ConsoleOverviewPage() {
     );
   }
 
-  const [counts, heartbeat] = await Promise.all([
+  const [counts, worker] = await Promise.all([
     loadCounts(project.id),
-    loadWorkerHeartbeat(project.id),
+    loadWorkerStatus(project.id),
   ]);
-  const workerOnline = heartbeat !== null && Date.now() - new Date(heartbeat).getTime() < 120_000;
   const snippet = embedSnippet(project.embedKey);
 
   return (
@@ -50,10 +49,10 @@ export default async function ConsoleOverviewPage() {
         <Stat value={counts.conversations} label="Conversations" />
         <Stat value={counts.escalations} label="Escalations" />
         <div className="stat stat--status">
-          <span className={`stat__dot${workerOnline ? "" : " is-off"}`} />
+          <span className={`stat__dot${worker.online ? "" : " is-off"}`} />
           <span>
             <span className="stat__num block text-[1.05rem]">
-              {workerOnline ? "Online" : "Offline"}
+              {worker.online ? "Online" : "Offline"}
             </span>
             <span className="stat__label">Worker</span>
           </span>

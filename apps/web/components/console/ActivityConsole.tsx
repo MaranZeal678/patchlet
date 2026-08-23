@@ -1,30 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { TraceEvent } from "@patchlet/shared";
+import { useCallback, useMemo, useState } from "react";
 import { escalationLabel, escalationTone, formatDateTime } from "@/lib/console/format";
-import { TraceRow } from "./TraceRow";
+import { TraceStream } from "./TraceStream";
 
-type Escalation = {
-  id: string;
-  conversationId: string | null;
-  status: string;
-  request: { title?: string; description?: string; quote?: string } | null;
-  issueUrl: string | null;
-  issueNumber: number | null;
-  prUrl: string | null;
-  prNumber: number | null;
-  deploymentUrl: string | null;
-  createdAt: string;
-};
+import type { ConsoleConversation, ConsoleEscalation } from "@/lib/console/records";
 
-type Conversation = {
-  id: string;
-  pageUrl: string | null;
-  pageTitle: string | null;
-  createdAt: string;
-  messages: { id: string; role: string; content: string; createdAt: string }[];
-};
+type Escalation = ConsoleEscalation;
+type Conversation = ConsoleConversation;
 
 type Selection =
   | { kind: "escalation"; id: string; conversationId: string | null }
@@ -34,21 +17,23 @@ type Filter = "all" | "escalations" | "conversations";
 
 const FILTERS: Filter[] = ["all", "escalations", "conversations"];
 
-export function ActivityConsole() {
-  const [escalations, setEscalations] = useState<Escalation[]>([]);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+export function ActivityConsole({
+  initialEscalations,
+  initialConversations,
+}: {
+  initialEscalations: Escalation[];
+  initialConversations: Conversation[];
+}) {
+  const [escalations, setEscalations] = useState<Escalation[]>(initialEscalations);
+  const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
   const [filter, setFilter] = useState<Filter>("all");
-  const [selection, setSelection] = useState<Selection | null>(null);
-  const [events, setEvents] = useState<TraceEvent[]>([]);
+  const [chosen, setChosen] = useState<Selection | null>(null);
+  const [eventCount, setEventCount] = useState(0);
   const [live, setLive] = useState(false);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
 
-  const body = useRef<HTMLDivElement>(null);
-  // Autoscroll follows the tail, but stops the moment the reader scrolls up to read something.
-  const pinned = useRef(true);
-
-  const loadRecords = useCallback(async () => {
+  /** Re-read the two lists after a decision, so the status chip and the links catch up. */
+  const refresh = useCallback(async () => {
     try {
       const [escalationResponse, conversationResponse] = await Promise.all([
         fetch("/api/escalations"),
@@ -61,31 +46,24 @@ export function ActivityConsole() {
       setEscalations(escalationBody.escalations ?? []);
       setConversations(conversationBody.conversations ?? []);
     } catch {
-      setError("Could not load the activity list.");
-    } finally {
-      setLoading(false);
+      setError("Could not refresh the activity list.");
     }
   }, []);
 
-  useEffect(() => {
-    void loadRecords();
-  }, [loadRecords]);
+  const handleDecision = useCallback(() => {
+    void refresh();
+  }, [refresh]);
 
-  // Select the newest escalation, or the newest conversation, as soon as one exists.
-  useEffect(() => {
-    if (selection) return;
+  // Nothing chosen yet means the newest escalation, or failing that the newest conversation.
+  const selection = useMemo<Selection | null>(() => {
+    if (chosen) return chosen;
     const escalation = escalations[0];
     if (escalation) {
-      setSelection({
-        kind: "escalation",
-        id: escalation.id,
-        conversationId: escalation.conversationId,
-      });
-      return;
+      return { kind: "escalation", id: escalation.id, conversationId: escalation.conversationId };
     }
     const conversation = conversations[0];
-    if (conversation) setSelection({ kind: "conversation", id: conversation.id });
-  }, [escalations, conversations, selection]);
+    return conversation ? { kind: "conversation", id: conversation.id } : null;
+  }, [chosen, escalations, conversations]);
 
   const query = useMemo(() => {
     if (!selection) return null;
@@ -98,59 +76,6 @@ export function ActivityConsole() {
     }
     return params.toString();
   }, [selection]);
-
-  // Backfill, then tail. The stream resumes from the last id the backfill returned, so nothing is
-  // shown twice and nothing between the two requests is lost.
-  useEffect(() => {
-    if (!query) return;
-    let active = true;
-    let source: EventSource | null = null;
-
-    setEvents([]);
-    setLive(false);
-    pinned.current = true;
-
-    (async () => {
-      let cursor = 0;
-      try {
-        const response = await fetch(`/api/trace?${query}&limit=500`);
-        const payload = (await response.json()) as { events?: TraceEvent[]; error?: string };
-        if (!active) return;
-        if (payload.error) setError(payload.error);
-        const backfill = payload.events ?? [];
-        setEvents(backfill);
-        cursor = backfill.length > 0 ? (backfill[backfill.length - 1]?.id ?? 0) : 0;
-      } catch {
-        if (active) setError("Could not load the trace.");
-      }
-
-      if (!active) return;
-      source = new EventSource(`/api/trace/stream?${query}&since=${cursor}`);
-      source.addEventListener("open", () => setLive(true));
-      source.addEventListener("trace", (message) => {
-        try {
-          const event = JSON.parse((message as MessageEvent<string>).data) as TraceEvent;
-          setEvents((current) =>
-            current.some((existing) => existing.id === event.id) ? current : [...current, event],
-          );
-        } catch {
-          // A malformed frame is not worth interrupting the stream for.
-        }
-      });
-      source.addEventListener("error", () => setLive(false));
-    })();
-
-    return () => {
-      active = false;
-      source?.close();
-      setLive(false);
-    };
-  }, [query]);
-
-  useEffect(() => {
-    const node = body.current;
-    if (node && pinned.current) node.scrollTop = node.scrollHeight;
-  }, [events]);
 
   const selectedEscalation =
     selection?.kind === "escalation"
@@ -197,9 +122,7 @@ export function ActivityConsole() {
 
       <div className="activity-grid">
         <div className="activity-list">
-          {loading ? (
-            <div className="notice">Loading activity...</div>
-          ) : nothingToShow ? (
+          {nothingToShow ? (
             <div className="empty-state">
               <p className="empty-state__title">Nothing has happened yet</p>
               <p className="empty-state__text">
@@ -220,7 +143,7 @@ export function ActivityConsole() {
                           : ""
                       }`}
                       onClick={() =>
-                        setSelection({
+                        setChosen({
                           kind: "escalation",
                           id: escalation.id,
                           conversationId: escalation.conversationId,
@@ -267,7 +190,7 @@ export function ActivityConsole() {
                             ? " is-selected"
                             : ""
                         }`}
-                        onClick={() => setSelection({ kind: "conversation", id: conversation.id })}
+                        onClick={() => setChosen({ kind: "conversation", id: conversation.id })}
                       >
                         <div className="record-card__top">
                           <span className="outcome-badge is-muted">conversation</span>
@@ -310,7 +233,7 @@ export function ActivityConsole() {
               </h2>
               <p className="trace-panel__meta">
                 {selection
-                  ? `${events.length} event${events.length === 1 ? "" : "s"}`
+                  ? `${eventCount} event${eventCount === 1 ? "" : "s"}`
                   : "Choose an escalation or a conversation."}
               </p>
             </div>
@@ -322,31 +245,20 @@ export function ActivityConsole() {
 
           {selectedEscalation ? <ArtifactLinks escalation={selectedEscalation} /> : null}
 
-          <div
-            className="trace-body"
-            ref={body}
-            onScroll={(scrollEvent) => {
-              const node = scrollEvent.currentTarget;
-              pinned.current = node.scrollHeight - node.scrollTop - node.clientHeight < 60;
-            }}
-          >
-            {events.length === 0 ? (
-              <p className="trace-row__text">
-                {selection
-                  ? "No trace rows for this selection yet. New ones stream in as they happen."
-                  : "Nothing selected."}
-              </p>
-            ) : (
-              events.map((event) => (
-                <TraceRow
-                  key={event.id}
-                  event={event}
-                  escalationId={event.escalationId ?? selectedEscalation?.id ?? null}
-                  onDecision={() => void loadRecords()}
-                />
-              ))
-            )}
-          </div>
+          {query && selection ? (
+            <TraceStream
+              key={query}
+              query={query}
+              escalationId={selectedEscalation?.id ?? null}
+              onDecision={handleDecision}
+              onCount={setEventCount}
+              onLive={setLive}
+            />
+          ) : (
+            <div className="trace-body">
+              <p className="trace-row__text">Nothing selected.</p>
+            </div>
+          )}
         </section>
       </div>
     </>

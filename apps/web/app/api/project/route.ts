@@ -2,7 +2,7 @@
 import { corsJson, preflight } from "@/lib/cors";
 import { getRepository } from "@/lib/github";
 import { embedSnippet, loadProject, toProject, widgetUrl } from "@/lib/console/project";
-import { loadCounts, loadWorkerHeartbeat } from "@/lib/console/counts";
+import { loadCounts, loadWorkerStatus } from "@/lib/console/counts";
 import { serviceClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -17,24 +17,17 @@ export async function GET(): Promise<Response> {
   if (!project) {
     return corsJson({ error: "no project has been seeded yet" }, { status: 404 });
   }
-  const [counts, heartbeat] = await Promise.all([
+  const [counts, worker] = await Promise.all([
     loadCounts(project.id),
-    loadWorkerHeartbeat(project.id),
+    loadWorkerStatus(project.id),
   ]);
   return corsJson({
     project,
     counts,
-    worker: { lastSeenAt: heartbeat, online: isRecent(heartbeat) },
+    worker,
     embedSnippet: embedSnippet(project.embedKey),
     widgetUrl: widgetUrl(),
   });
-}
-
-/** The worker's heartbeat is a minute apart, so two minutes of silence means it is gone. */
-function isRecent(iso: string | null): boolean {
-  if (!iso) return false;
-  const seen = new Date(iso).getTime();
-  return Number.isFinite(seen) && Date.now() - seen < 120_000;
 }
 
 type Patch = {

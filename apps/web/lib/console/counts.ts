@@ -26,11 +26,13 @@ export async function loadCounts(projectId: string): Promise<ConsoleCounts> {
   return { documents, chunks, conversations, escalations };
 }
 
+export type WorkerStatus = { lastSeenAt: string | null; online: boolean };
+
 /**
  * The worker writes a `status` trace event every minute. Anything inside two minutes counts as
  * online; anything older, or nothing at all, counts as offline.
  */
-export async function loadWorkerHeartbeat(projectId: string): Promise<string | null> {
+export async function loadWorkerStatus(projectId: string): Promise<WorkerStatus> {
   const { data } = await serviceClient()
     .from("trace_event")
     .select("created_at")
@@ -40,5 +42,8 @@ export async function loadWorkerHeartbeat(projectId: string): Promise<string | n
     .order("id", { ascending: false })
     .limit(1)
     .maybeSingle();
-  return data ? String(data.created_at) : null;
+
+  const lastSeenAt = data ? String(data.created_at) : null;
+  const seen = lastSeenAt ? new Date(lastSeenAt).getTime() : Number.NaN;
+  return { lastSeenAt, online: Number.isFinite(seen) && Date.now() - seen < 120_000 };
 }
