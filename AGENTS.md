@@ -1,0 +1,87 @@
+# Contributing to Patchlet
+
+Guidance for anyone working in this repository, human or automated. Read `docs/contracts.md`
+before changing anything that crosses a boundary.
+
+## Layout
+
+| Path | Owns |
+|---|---|
+| `packages/shared` | Types and pure helpers shared by the widget, the web app and the tests. Zero runtime dependencies. |
+| `packages/widget` | The embeddable script. Builds to a single IIFE at `dist/patchlet.js`, copied into `apps/web/public/widget.js`. |
+| `apps/web` | The Next.js dashboard: landing page, console, and every HTTP route. |
+| `services/worker` | The Python workflow worker. Independent toolchain (`uv`), independent tests. |
+| `supabase/migrations` | Schema. Additive migrations only after the first release. |
+| `scripts` | Node maintenance scripts run through the root `package.json`. |
+| `docs` | Architecture, contracts, demo notes, deploy notes. |
+
+## The contracts file
+
+`docs/contracts.md` holds the data model, the shared TypeScript types, the HTTP API and the agent's
+behaviour. Several parts of the system are built against it in parallel, so it wins over local
+preference. If you need to change a contract, change `docs/contracts.md` and the code that depends
+on it in the same commit.
+
+## TypeScript
+
+- `strict: true` everywhere, inherited from `tsconfig.base.json`. No `any` in checked-in code.
+- Prefer narrow types at boundaries and widen inwards, not the other way round.
+- Shared types live in `@patchlet/shared`. Do not redeclare them locally.
+
+## Model output is untrusted
+
+Anything a model returns is input from outside the system. Validate and coerce it at the boundary,
+never cast it. Concretely:
+
+- Parse JSON responses into a checked shape before use; on a mismatch, degrade (drop the steps, keep
+  the prose) rather than throwing at the user.
+- A step plan is only valid if every `target` is an affordance id the widget actually sent, which is
+  what `validatePlan` enforces. Ids are opaque handles, never selectors.
+- Never interpolate model output into SQL, a shell command, or a file path. The worker's file
+  applier guards against path traversal for exactly this reason.
+- Never render model output as HTML.
+
+## Secrets
+
+No literal secrets anywhere, including tests and fixtures. Every credential is read from the
+environment through a typed accessor (`apps/web/lib/env.ts`) that fails with the variable's name
+when it is missing. `.env.example` lists names and one-line descriptions only. The widget and the
+console pages never see an API key; the only public identifier is the project's embed key.
+
+## Style
+
+- Small files, one concern each. If a file needs a section comment to be navigable, split it.
+- Clear names over short names. Comments explain why, not what.
+- No em dashes. Use a plain dash.
+- Status is text, not a coloured pill. See the design notes in `docs/architecture.md`.
+
+## Commits
+
+Conventional Commits, imperative subject, no trailers of any kind.
+
+```
+feat(widget): spotlight the resolved control
+fix(web): keep the trace stream open across reconnects
+docs: describe the escalation contract
+```
+
+## Running things
+
+```bash
+npm install
+npm run dev          # dashboard on http://localhost:3000
+npm run build        # widget, then copy, then web
+npm run typecheck    # must pass before you push
+npm test             # must pass before you push
+npm run db:migrate   # apply supabase/migrations/*.sql in order
+npm run db:seed      # idempotent seed, prints the embed key when it creates one
+```
+
+Anything that needs credentials expects them in the environment. Supply them with your own secret
+manager rather than a file in the working tree.
+
+## Maintaining this file
+
+Keep this file short and durable. Record only what almost every future contributor needs. For
+anything the codebase already states, link to the authoritative file or command instead of copying
+the detail here. Update it in the same commit as the change it describes.

@@ -1,0 +1,62 @@
+/**
+ * Typed access to every environment variable the app reads.
+ *
+ * Every accessor resolves at call time, never at import time, so a missing variable fails the one
+ * request that needed it with a message naming it, rather than taking the whole build or the whole
+ * server down at boot.
+ */
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (value === undefined || value === "") {
+    throw new Error(`Missing required environment variable ${name}. See .env.example.`);
+  }
+  return value;
+}
+
+function optional(name: string, fallback: string): string {
+  const value = process.env[name];
+  return value === undefined || value === "" ? fallback : value;
+}
+
+/** Mistral API key. Server-side only. */
+export const mistralApiKey = (): string => required("MISTRAL_API_KEY");
+
+/** Supabase project URL, `https://<ref>.supabase.co`. */
+export const supabaseUrl = (): string => required("SUPABASE_URL");
+
+/** Service role key. Server-side only; it bypasses row level security. */
+export const supabaseServiceRoleKey = (): string => required("SUPABASE_SERVICE_ROLE_KEY");
+
+/** Anon key. Not read by the app today, kept for completeness. */
+export const supabaseAnonKey = (): string => required("SUPABASE_ANON_KEY");
+
+/** GitHub token used by the repository probe and the repository connection check. */
+export const githubToken = (): string => required("GITHUB_TOKEN");
+
+/** Vercel token used to watch the target project's deployments. */
+export const vercelToken = (): string => required("VERCEL_TOKEN");
+
+/** Slug of the single project the console manages. */
+export const projectSlug = (): string => optional("PATCHLET_PROJECT_SLUG", "not-mistral");
+
+/** Which engine runs an escalation: the durable workflow, or the worker's local runner. */
+export const escalationEngine = (): "mistral" | "local" =>
+  optional("ESCALATION_ENGINE", "mistral") === "local" ? "local" : "mistral";
+
+/** Registered name of the durable workflow. */
+export const workflowName = (): string =>
+  optional("MISTRAL_WORKFLOW_NAME", "patchlet-missing-feature");
+
+/** Deployment the workflow executes on. The worker reads the same value as DEPLOYMENT_NAME. */
+export const workflowDeploymentName = (): string =>
+  optional("MISTRAL_DEPLOYMENT_NAME", "patchlet-worker");
+
+/** Public origin of this app, used to build the widget script URL and the embed snippet. */
+export const appUrl = (): string => optional("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
+
+/** Vercel project whose deployment the worker waits for after a merge. */
+export const targetVercelProject = (): string => optional("TARGET_VERCEL_PROJECT", "not-mistral");
+
+/** Optional Slack webhook, posted to when an issue and a pull request are drafted. */
+export const slackWebhookUrl = (): string | null => process.env.SLACK_WEBHOOK_URL || null;
