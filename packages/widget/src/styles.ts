@@ -244,6 +244,7 @@ const SHEET = `
 .pl-card p { margin: 0; font-size: 13.5px; white-space: pre-wrap; }
 .pl-card__label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--pl-muted); }
 .pl-card__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.pl-card__note { color: var(--pl-muted); font-size: 12.5px; }
 
 .pl-btn {
   appearance: none;

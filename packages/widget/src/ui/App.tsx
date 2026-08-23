@@ -213,9 +213,14 @@ export function App({ client, shadow, host, position, register }: AppProps) {
     async (turn: Turn) => {
       const conversationId = conversationRef.current;
       if (!conversationId || !turn.messageId || turn.reporting || turn.escalationId) return;
-      patch(turn.id, (current) => ({ ...current, reporting: true }));
+      patch(turn.id, (current) => ({ ...current, reporting: true, reportBlocked: undefined }));
       try {
-        const { escalationId, status } = await client.escalate(conversationId, turn.messageId);
+        const result = await client.escalate(conversationId, turn.messageId);
+        if (!result.ok) {
+          patch(turn.id, (current) => ({ ...current, reporting: false, reportBlocked: result.reason }));
+          return;
+        }
+        const { escalationId, status } = result;
         patch(turn.id, (current) => ({
           ...current,
           reporting: false,
@@ -229,7 +234,7 @@ export function App({ client, shadow, host, position, register }: AppProps) {
           });
         });
       } catch {
-        patch(turn.id, (current) => ({ ...current, reporting: false, error: 'The report could not be sent.' }));
+        patch(turn.id, (current) => ({ ...current, reporting: false, reportBlocked: 'failed' }));
       }
     },
     [client, patch],

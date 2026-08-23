@@ -51,6 +51,9 @@ export type FeatureRequest = {
 
 export type EscalationOffer = { offered: true; request: FeatureRequest } | { offered: false };
 
+/** Why the widget could not report a missing feature after the user asked it to. */
+export type ReportBlock = 'no_repository' | 'failed';
+
 export type ChatEvent =
   | { type: 'conversation'; conversationId: string; messageId: string }
   | { type: 'understanding'; feature: string; intent: 'howto' | 'feature' | 'other'; memory: string[] }
