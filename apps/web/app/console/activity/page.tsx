@@ -1,7 +1,8 @@
 import { ActivityConsole } from "@/components/console/ActivityConsole";
 import { PageHeader } from "@/components/PageHeader";
 import { loadProject } from "@/lib/console/project";
-import { loadConversations, loadEscalations } from "@/lib/console/records";
+import { loadConversationSummaries } from "@/lib/console/conversations";
+import { loadEscalations } from "@/lib/console/records";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,10 @@ export default async function ActivityPage() {
   const project = await loadProject();
   // The first paint carries the two lists already, so the demo never opens on a spinner.
   const [escalations, conversations] = project
-    ? await Promise.all([loadEscalations(project.id), loadConversations(project.id, 40)])
+    ? await Promise.all([
+        loadEscalations(project.id),
+        loadConversationSummaries(project.id, { limit: 40 }),
+      ])
     : [[], []];
 
   return (

@@ -1,13 +1,15 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { outcomeLabel, outcomeTone } from "@/lib/agent/outcome";
 import { escalationLabel, escalationTone, formatDateTime } from "@/lib/console/format";
 import { TraceStream } from "./TraceStream";
 
-import type { ConsoleConversation, ConsoleEscalation } from "@/lib/console/records";
+import type { ConversationSummary } from "@/lib/console/conversations";
+import type { ConsoleEscalation } from "@/lib/console/records";
 
 type Escalation = ConsoleEscalation;
-type Conversation = ConsoleConversation;
+type Conversation = ConversationSummary;
 
 type Selection =
   | { kind: "escalation"; id: string; conversationId: string | null }
@@ -179,44 +181,43 @@ export function ActivityConsole({
                 ))}
 
               {showConversations &&
-                conversations.map((conversation) => {
-                  const question = conversation.messages.find((message) => message.role === "user");
-                  return (
-                    <li key={conversation.id}>
-                      <button
-                        type="button"
-                        className={`record-card${
-                          selection?.kind === "conversation" && selection.id === conversation.id
-                            ? " is-selected"
-                            : ""
-                        }`}
-                        onClick={() => setChosen({ kind: "conversation", id: conversation.id })}
-                      >
-                        <div className="record-card__top">
-                          <span className="outcome-badge is-muted">conversation</span>
-                          <span className="record-card__time">
-                            {formatDateTime(conversation.createdAt)}
-                          </span>
-                        </div>
-                        <p className="record-card__summary">
-                          {question?.content ?? conversation.pageTitle ?? "Conversation"}
+                conversations.map((conversation) => (
+                  <li key={conversation.id}>
+                    <button
+                      type="button"
+                      className={`record-card${
+                        selection?.kind === "conversation" && selection.id === conversation.id
+                          ? " is-selected"
+                          : ""
+                      }`}
+                      onClick={() => setChosen({ kind: "conversation", id: conversation.id })}
+                    >
+                      <div className="record-card__top">
+                        <span className={`outcome-badge ${outcomeTone(conversation.outcome)}`}>
+                          {outcomeLabel(conversation.outcome)}
+                        </span>
+                        <span className="record-card__time">
+                          {formatDateTime(conversation.createdAt)}
+                        </span>
+                      </div>
+                      <p className="record-card__summary">
+                        {conversation.question ?? conversation.pageTitle ?? "Conversation"}
+                      </p>
+                      {conversation.pageTitle ? (
+                        <p className="record-card__line">
+                          <span className="record-card__label">Page</span>
+                          {conversation.pageTitle}
                         </p>
-                        {conversation.pageTitle ? (
-                          <p className="record-card__line">
-                            <span className="record-card__label">Page</span>
-                            {conversation.pageTitle}
-                          </p>
-                        ) : null}
-                        <div className="record-card__meta">
-                          <span>
-                            {conversation.messages.length} message
-                            {conversation.messages.length === 1 ? "" : "s"}
-                          </span>
-                        </div>
-                      </button>
-                    </li>
-                  );
-                })}
+                      ) : null}
+                      <div className="record-card__meta">
+                        <span>
+                          {conversation.messageCount} message
+                          {conversation.messageCount === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                    </button>
+                  </li>
+                ))}
             </ul>
           )}
         </div>
@@ -227,8 +228,7 @@ export function ActivityConsole({
               <h2 className="trace-panel__title">
                 {selectedEscalation?.request?.title ??
                   (selectedConversation
-                    ? (selectedConversation.messages.find((message) => message.role === "user")
-                        ?.content ?? "Conversation")
+                    ? (selectedConversation.question ?? "Conversation")
                     : "Live trace")}
               </h2>
               <p className="trace-panel__meta">

@@ -18,21 +18,6 @@ export type ConsoleEscalation = {
   updatedAt: string | null;
 };
 
-export type ConsoleMessage = {
-  id: string;
-  role: string;
-  content: string;
-  createdAt: string;
-};
-
-export type ConsoleConversation = {
-  id: string;
-  pageUrl: string | null;
-  pageTitle: string | null;
-  createdAt: string;
-  messages: ConsoleMessage[];
-};
-
 const ESCALATION_COLUMNS =
   "id, conversation_id, status, engine, request, issue_url, issue_number, pr_url, pr_number, branch, deployment_url, approval, error, created_at, updated_at";
 
@@ -62,50 +47,5 @@ export async function loadEscalations(projectId: string): Promise<ConsoleEscalat
     error: row.error === null ? null : String(row.error),
     createdAt: String(row.created_at),
     updatedAt: row.updated_at === null ? null : String(row.updated_at),
-  }));
-}
-
-/** Recent conversations with their messages, newest conversation first. */
-export async function loadConversations(
-  projectId: string,
-  limit: number,
-): Promise<ConsoleConversation[]> {
-  const db = serviceClient();
-  const { data: rows, error } = await db
-    .from("conversation")
-    .select("id, page_url, page_title, created_at")
-    .eq("project_id", projectId)
-    .order("created_at", { ascending: false })
-    .limit(Math.min(Math.max(limit, 1), 100));
-  if (error) throw new Error(error.message);
-
-  const ids = (rows ?? []).map((row) => String(row.id));
-  const byConversation = new Map<string, ConsoleMessage[]>();
-
-  if (ids.length > 0) {
-    const { data: messages } = await db
-      .from("message")
-      .select("id, conversation_id, role, content, created_at")
-      .in("conversation_id", ids)
-      .order("created_at", { ascending: true });
-    for (const message of messages ?? []) {
-      const key = String(message.conversation_id);
-      const bucket = byConversation.get(key) ?? [];
-      bucket.push({
-        id: String(message.id),
-        role: String(message.role),
-        content: String(message.content),
-        createdAt: String(message.created_at),
-      });
-      byConversation.set(key, bucket);
-    }
-  }
-
-  return (rows ?? []).map((row) => ({
-    id: String(row.id),
-    pageUrl: row.page_url === null ? null : String(row.page_url),
-    pageTitle: row.page_title === null ? null : String(row.page_title),
-    createdAt: String(row.created_at),
-    messages: byConversation.get(String(row.id)) ?? [],
   }));
 }
