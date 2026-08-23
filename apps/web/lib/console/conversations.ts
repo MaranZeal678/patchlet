@@ -2,7 +2,14 @@
  * Reads for the Conversations page: a filterable list of what the agent handled, and the full
  * transcript behind any one of them.
  */
-import type { FeatureRequest, FeedbackRating, ProbeResult, Step, Verdict } from "@patchlet/shared";
+import type {
+  FeatureRequest,
+  FeedbackRating,
+  ProbeResult,
+  RequestGroup,
+  Step,
+  Verdict,
+} from "@patchlet/shared";
 import {
   CONVERSATION_OUTCOMES,
   outcomeFromTurns,
@@ -10,6 +17,7 @@ import {
   type OutcomeEvidence,
 } from "@/lib/agent/outcome";
 import { loadVisitorFacts } from "@/lib/agent/memory";
+import { groupsByConversation } from "@/lib/console/groups";
 import { serviceClient } from "@/lib/supabase";
 
 export type ConversationEscalation = {
@@ -56,6 +64,8 @@ export type ConversationTurn = {
 
 export type ConversationDetail = ConversationSummary & {
   messages: ConversationTurn[];
+  /** The request this conversation was filed under, shared with everyone who asked the same. */
+  group: RequestGroup | null;
   /** What the agent remembers about the visitor behind this conversation, oldest first. */
   memory: string[];
 };
@@ -324,6 +334,7 @@ export async function loadConversationDetail(
   const ratings = await feedbackByMessage(rows.map((turn) => turn.id));
   const turns = rows.map((turn) => ({ ...turn, feedback: ratings.get(turn.id) ?? null }));
   const escalation = (await escalationsByConversation([id])).get(id) ?? null;
+  const group = (await groupsByConversation([id])).get(id) ?? null;
   const memory = await loadVisitorFacts(projectId, text(row.visitor_id));
 
   return {
@@ -341,6 +352,7 @@ export async function loadConversationDetail(
     messageCount: turns.length,
     durationMs: spanMs(turns.map((turn) => turn.createdAt)),
     escalation,
+    group,
     messages: turns,
     memory,
   };

@@ -22,12 +22,14 @@ LABEL_COLOURS = {
     "priority:high": "b42318",
     "priority:medium": "b54708",
     "priority:low": "667085",
+    "auto-detected": "5925dc",
 }
 LABEL_DESCRIPTIONS = {
     "patchlet": "Filed by Patchlet from a support conversation",
     "priority:high": "Blocks a common flow",
     "priority:medium": "A real gap with a workaround",
     "priority:low": "A nice improvement",
+    "auto-detected": "Noticed by the agent, not reported by a user",
 }
 
 
@@ -119,6 +121,10 @@ class GitHubClient:
 
     def update_issue_body(self, number: int, body: str) -> dict[str, Any]:
         return self._request("PATCH", self._repo_path(f"/issues/{number}"), json={"body": body})
+
+    def set_labels(self, number: int, labels: list[str]) -> dict[str, Any]:
+        """Replaces the whole label set, so a promoted request stops reading as low priority."""
+        return self._request("PUT", self._repo_path(f"/issues/{number}/labels"), json={"labels": labels})
 
     # ---- labels ---------------------------------------------------------
 

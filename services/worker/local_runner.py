@@ -2,7 +2,8 @@
 
 Polls `escalation` rows with status='queued' and engine='local' every 2 s, runs the steps in order,
 and implements the pause by polling `escalation.approval` every 3 s until the console sets it.
-Run with `vault-exec uv run python local_runner.py`.
+Each run gets its own thread, because a run waiting on a human must not hold up the issue-only and
+count-update runs behind it. Run with `vault-exec uv run python local_runner.py`.
 """
 
 from __future__ import annotations
@@ -24,6 +25,9 @@ log = logging.getLogger("patchlet.local")
 def request_from_row(row: dict[str, Any]) -> FeatureRequestInput:
     request = row.get("request") or {}
     project = db.get_project(row["project_id"]) or {}
+    # The group carries the weight of this request, so the run reads it fresh off the row's group.
+    group = db.get_group(row["group_id"]) if row.get("group_id") else None
+    mode = str(row.get("mode") or "full")
     return FeatureRequestInput(
         escalation_id=row["id"],
         project_id=row["project_id"],
@@ -36,6 +40,14 @@ def request_from_row(row: dict[str, Any]) -> FeatureRequestInput:
         rationale=request.get("rationale", "") or "",
         conversation_excerpt=request.get("conversation_excerpt", "") or "",
         site_url=request.get("site_url") or project.get("site_url") or "",
+        group_id=str(row.get("group_id") or ""),
+        trace_escalation_id=str((group or {}).get("escalation_id") or "") if mode == "update" else "",
+        report_count=int((group or {}).get("report_count") or 1),
+        user_report_count=int((group or {}).get("user_report_count") or 0),
+        priority=str((group or {}).get("priority") or ""),
+        issue_number=int((group or {}).get("issue_number") or 0),
+        file_only=mode == "file_only",
+        update_only=mode == "update",
     )
 
 
@@ -50,9 +62,16 @@ def wait_for_approval(escalation_id: str) -> Approval:
 
 def run_escalation(row: dict[str, Any]) -> None:
     req = request_from_row(row)
-    step = "file_issue"
+    step = "update_group" if req.update_only else "file_issue"
     try:
+        if req.update_only:
+            outcome = pipeline.update_group(req)
+            log.info("escalation %s finished: %s", req.escalation_id, outcome.status)
+            return
         issue = pipeline.file_issue(req)
+        if req.file_only:
+            log.info("escalation %s filed issue #%s and stopped", req.escalation_id, issue.number)
+            return
         step = "inspect_repository"
         plan = pipeline.inspect_repository(req, issue)
         step = "draft_implementation"
@@ -88,7 +107,7 @@ def main() -> None:
             log.warning("poll failed: %s", error)
             row = None
         if row:
-            run_escalation(row)
+            threading.Thread(target=run_escalation, args=(row,), daemon=True).start()
         else:
             time.sleep(POLL_S)
 

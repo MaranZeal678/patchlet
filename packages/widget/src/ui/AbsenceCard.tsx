@@ -24,6 +24,7 @@ export function AbsenceCard({
   escalation,
   reporting,
   blocked,
+  noted,
   elapsedSeconds,
   rating,
   canRate,
@@ -36,6 +37,8 @@ export function AbsenceCard({
   escalation?: EscalationView;
   reporting?: boolean;
   blocked?: ReportBlock;
+  /** The agent already recorded the gap, whether or not the user takes up the offer. */
+  noted?: boolean;
   elapsedSeconds: number;
   rating?: FeedbackRating;
   canRate: boolean;
@@ -57,6 +60,9 @@ export function AbsenceCard({
         </div>
       )}
       {settled && !escalation && blocked && <p class="pl-card__note">{BLOCKED_COPY[blocked]}</p>}
+      {settled && !escalation && !blocked && noted && (
+        <p class="pl-card__note">I have noted this for the team.</p>
+      )}
       {escalation && <Timeline escalation={escalation} elapsedSeconds={elapsedSeconds} />}
       {settled && <AnswerActions text={text} rating={rating} canRate={canRate} onRate={onRate} />}
     </div>
@@ -66,7 +72,7 @@ export function AbsenceCard({
 type Stage = { key: string; label: string; statuses: EscalationStatus[] };
 
 const STAGES: Stage[] = [
-  { key: 'filed', label: 'Your request was sent to the team', statuses: ['filing', 'inspecting', 'drafting', 'pr_open', 'awaiting_approval', 'approved', 'merging', 'deploying', 'shipped'] },
+  { key: 'filed', label: 'Your request was sent to the team', statuses: ['filing', 'filed', 'updated', 'inspecting', 'drafting', 'pr_open', 'awaiting_approval', 'approved', 'merging', 'deploying', 'shipped'] },
   { key: 'drafted', label: 'Someone is working on it', statuses: ['drafting', 'pr_open', 'awaiting_approval', 'approved', 'merging', 'deploying', 'shipped'] },
   { key: 'pr', label: 'A change is ready for review', statuses: ['pr_open', 'awaiting_approval', 'approved', 'merging', 'deploying', 'shipped'] },
   { key: 'approval', label: 'Waiting on a final check', statuses: ['awaiting_approval', 'approved', 'merging', 'deploying', 'shipped'] },
@@ -74,7 +80,7 @@ const STAGES: Stage[] = [
 ];
 
 const ORDER: EscalationStatus[] = [
-  'queued', 'filing', 'inspecting', 'drafting', 'pr_open', 'awaiting_approval',
+  'queued', 'filing', 'filed', 'updated', 'inspecting', 'drafting', 'pr_open', 'awaiting_approval',
   'approved', 'merging', 'deploying', 'shipped',
 ];
 

@@ -77,6 +77,30 @@ def get_project(project_id: str) -> dict[str, Any] | None:
     return rows[0] if rows else None
 
 
+def get_group(group_id: str) -> dict[str, Any] | None:
+    response = requests.get(
+        _url("feature_request_group"),
+        params={"id": f"eq.{group_id}", "select": "*"},
+        headers=_headers(),
+        timeout=TIMEOUT,
+    )
+    rows = _check(response)
+    return rows[0] if rows else None
+
+
+def update_group(group_id: str, **fields: Any) -> dict[str, Any] | None:
+    """Patch a request group. The group is what the console lists, so this is what a reader sees."""
+    response = requests.patch(
+        _url("feature_request_group"),
+        params={"id": f"eq.{group_id}"},
+        headers=_headers("return=representation"),
+        json=dict(fields),
+        timeout=TIMEOUT,
+    )
+    rows = _check(response)
+    return rows[0] if rows else None
+
+
 def emit_trace(
     project_id: str,
     escalation_id: str | None,

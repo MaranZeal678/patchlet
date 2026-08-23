@@ -25,34 +25,53 @@ def _slug(text: str, limit: int = 40) -> str:
 
 def _set_status(req: FeatureRequestInput, status: str, **fields: object) -> None:
     db.update_escalation(req.escalation_id, status=status, **fields)
-    trace.status(req.project_id, req.escalation_id, f"Status: {status.replace('_', ' ')}", detail={"status": status})
+    trace.status(req.project_id, req.trace_id(), f"Status: {status.replace('_', ' ')}", detail={"status": status})
+
+
+def _set_group(req: FeatureRequestInput, **fields: object) -> None:
+    """Carry a run's progress back to the group, which is what the console lists."""
+    if req.group_id:
+        db.update_group(req.group_id, **fields)
 
 
 def fail(req: FeatureRequestInput, step: str, error: Exception) -> None:
     message = f"{step}: {error}"
     db.update_escalation(req.escalation_id, status="failed", error=message[:2000])
-    trace.error(req.project_id, req.escalation_id, f"{step} failed", message)
+    trace.error(req.project_id, req.trace_id(), f"{step} failed", message)
 
 
 # ---- 1. file_issue ----------------------------------------------------------
 
 def file_issue(req: FeatureRequestInput) -> IssueRef:
     _set_status(req, "filing")
-    reporter = Reporter(req.project_id, req.escalation_id)
+    reporter = Reporter(req.project_id, req.trace_id())
 
-    priority, reason = issue_text.choose_priority(req)
-    reporter.model(
-        f"Priority: {priority}",
-        issue_text.PRIORITY_MODEL,
-        "decide how urgent this request is",
-        input_summary=req.title,
-        output_summary=reason or priority,
-    )
-    labels = issue_text.labels_for(priority)
+    # The group's own weight decides this. Only a request that arrived without one still asks
+    # the model, which is the path a direct workflow execution takes.
+    if req.priority in issue_text.PRIORITIES:
+        priority = req.priority
+        reporter.status(
+            f"Priority: {priority}",
+            detail={
+                "priority": priority,
+                "reportCount": req.report_count,
+                "userReportCount": req.user_report_count,
+            },
+        )
+    else:
+        priority, reason = issue_text.choose_priority(req)
+        reporter.model(
+            f"Priority: {priority}",
+            issue_text.PRIORITY_MODEL,
+            "decide how urgent this request is",
+            input_summary=req.title,
+            output_summary=reason or priority,
+        )
+    labels = issue_text.labels_for(priority, auto_detected=req.auto_detected())
 
     criteria = issue_text.default_acceptance_criteria(req)
     body = issue_text.build_issue_body(req, criteria, priority=priority)
-    trace.issue_draft(req.project_id, req.escalation_id, req.title, body)
+    trace.issue_draft(req.project_id, req.trace_id(), req.title, body)
 
     github = GitHubClient.for_project(req.repo_full_name, req.project_id)
     created_labels = github.ensure_labels(labels)
@@ -62,14 +81,25 @@ def file_issue(req: FeatureRequestInput) -> IssueRef:
             f"POST /repos/{req.repo_full_name}/labels", ", ".join(created_labels),
         )
 
-    existing = github.find_open_issue_by_title(req.title)
+    # The group already knows its issue; a run without one falls back to matching the title.
+    existing = github.get_issue(req.issue_number) if req.issue_number else github.find_open_issue_by_title(req.title)
     if existing:
         number = int(existing["number"])
         # The same request arriving again is signal, so the issue counts it and quotes the new user.
         current = github.get_issue(number).get("body") or ""
-        updated, count = issue_text.bump_request_count(current)
+        if req.group_id:
+            updated = issue_text.set_priority(
+                issue_text.set_request_counts(current, req.report_count, req.user_report_count),
+                priority,
+            )
+            count = req.report_count
+        else:
+            updated, count = issue_text.bump_request_count(current)
         github.update_issue_body(number, updated)
-        comment = github.comment(number, issue_text.build_duplicate_comment(req, count))
+        if req.group_id:
+            # The group decides the labels now, and its weight may have moved since it was filed.
+            github.set_labels(number, labels)
+        comment = github.comment(number, issue_text.build_group_comment(req) if req.group_id else issue_text.build_duplicate_comment(req, count))
         reporter.tool(
             f"Issue #{number} already open, requested {count} times now",
             "add_issue_comment", "rest",
@@ -79,6 +109,7 @@ def file_issue(req: FeatureRequestInput) -> IssueRef:
         ref = IssueRef(
             number=number, url=existing["html_url"], title=existing["title"], body=updated,
             deduplicated=True, transport="rest", priority=priority, request_count=count,
+            user_request_count=req.user_report_count,
         )
     else:
         result = mcp_github.file_issue_with_model(req.repo_full_name, req.title, body, labels, rest=github)
@@ -89,9 +120,19 @@ def file_issue(req: FeatureRequestInput) -> IssueRef:
         ref = IssueRef(
             number=result["number"], url=result["url"], title=req.title, body=body,
             transport=result["transport"], priority=priority,
+            request_count=req.report_count, user_request_count=req.user_report_count,
         )
-    trace.issue(req.project_id, req.escalation_id, ref.url, ref.number, ref.deduplicated)
+    trace.issue(req.project_id, req.trace_id(), ref.url, ref.number, ref.deduplicated)
     db.update_escalation(req.escalation_id, issue_url=ref.url, issue_number=ref.number)
+    group_fields: dict[str, object] = {"issue_url": ref.url, "issue_number": ref.number, "priority": priority}
+    # A full run is already past this; only the issue-only run leaves the group at "filed".
+    if req.file_only:
+        group_fields["status"] = "filed"
+    _set_group(req, **group_fields)
+    # An issue-only run has done everything it was asked to do.
+    if req.file_only:
+        db.update_escalation(req.escalation_id, status="filed")
+        trace.status(req.project_id, req.trace_id(), "Status: filed", detail={"status": "filed"})
     slack.notify(
         f"Patchlet filed {ref.url} ({priority} priority) for \"{req.title}\"."
         if not ref.deduplicated
@@ -104,6 +145,7 @@ def file_issue(req: FeatureRequestInput) -> IssueRef:
 
 def inspect_repository(req: FeatureRequestInput, issue: IssueRef) -> Plan:
     _set_status(req, "inspecting")
+    _set_group(req, status="drafting")
     reporter = Reporter(req.project_id, req.escalation_id)
     workdir = Path(tempfile.mkdtemp(prefix="patchlet-inspect-"))
     try:
@@ -175,6 +217,7 @@ def open_draft_pr(req: FeatureRequestInput, issue: IssueRef, plan: Plan, draft: 
     ref = PrRef(number=int(pr["number"]), url=pr["html_url"], branch=branch, head_sha=head_sha, node_id=pr.get("node_id", ""))
     trace.pr(req.project_id, req.escalation_id, ref.url, ref.number, branch)
     db.update_escalation(req.escalation_id, pr_url=ref.url, pr_number=ref.number, branch=branch)
+    _set_group(req, pr_url=ref.url, status="pr_open")
 
     # The gates already passed on this branch, so say so on the pull request itself.
     if draft.gates:
@@ -190,6 +233,7 @@ def open_draft_pr(req: FeatureRequestInput, issue: IssueRef, plan: Plan, draft: 
 
     slack.notify(f"Patchlet drafted {ref.url} for \"{req.title}\" and it is waiting for approval in the console.")
     _set_status(req, "awaiting_approval")
+    _set_group(req, status="awaiting_approval")
     trace.pause(req.project_id, req.escalation_id, PAUSE_LABEL)
     return ref
 
@@ -205,6 +249,7 @@ def merge_and_deploy(req: FeatureRequestInput, issue: IssueRef, pr: PrRef, decis
         github.close_pr(pr.number, f"Rejected from the Patchlet console: {note}")
         reporter.tool(f"Closed PR #{pr.number}", "close_pull_request", "rest", f"PATCH /pulls/{pr.number} state=closed", note)
         db.update_escalation(req.escalation_id, status="rejected", approval=approval)
+        _set_group(req, status="rejected")
         trace.status(req.project_id, req.escalation_id, "Status: rejected", detail={"status": "rejected"})
         return Outcome(status="rejected", issue_url=issue.url, pr_url=pr.url, note=note)
 
@@ -226,5 +271,78 @@ def merge_and_deploy(req: FeatureRequestInput, issue: IssueRef, pr: PrRef, decis
     )
     trace.deployment(req.project_id, req.escalation_id, url)
     db.update_escalation(req.escalation_id, status="shipped", deployment_url=url)
+    _set_group(req, status="shipped")
     trace.status(req.project_id, req.escalation_id, "Status: shipped", detail={"status": "shipped", "url": url})
     return Outcome(status="shipped", issue_url=issue.url, pr_url=pr.url, deployment_url=url, merge_sha=merge_sha)
+
+
+# ---- 6. update_group ----------------------------------------------------------
+
+def _pull_number(req: FeatureRequestInput, group: dict[str, object] | None) -> int:
+    if req.pr_number:
+        return req.pr_number
+    url = str((group or {}).get("pr_url") or "")
+    match = re.search(r"/pull/(\d+)", url)
+    return int(match.group(1)) if match else 0
+
+
+def update_group(req: FeatureRequestInput) -> Outcome:
+    """Carry one more report of an already-filed request to GitHub.
+
+    The developers do not need a second issue or a second pull request: they need to know this
+    keeps happening. So the count line and the labels are brought up to date and the new words are
+    quoted, on the issue and, when one exists, on the pull request people are reviewing.
+    """
+    group = db.get_group(req.group_id) if req.group_id else None
+    issue_number = req.issue_number or int((group or {}).get("issue_number") or 0)
+    if not issue_number:
+        # The first run has not landed yet, so there is nothing to update. File it instead.
+        issue = file_issue(req)
+        db.update_escalation(req.escalation_id, status="updated")
+        return Outcome(status="updated", issue_url=issue.url)
+
+    reporter = Reporter(req.project_id, req.trace_id())
+    github = GitHubClient.for_project(req.repo_full_name, req.project_id)
+    labels = issue_text.labels_for(req.priority, auto_detected=req.auto_detected())
+    github.ensure_labels(labels)
+
+    issue = github.get_issue(issue_number)
+    body = issue_text.set_priority(
+        issue_text.set_request_counts(issue.get("body") or "", req.report_count, req.user_report_count),
+        req.priority,
+    )
+    github.update_issue_body(issue_number, body)
+    github.set_labels(issue_number, labels)
+    comment = issue_text.build_group_comment(req)
+    github.comment(issue_number, comment)
+    reporter.tool(
+        f"Issue #{issue_number} is now {issue_text.count_line(req.report_count, req.user_report_count).lower()}",
+        "update_issue", "rest",
+        f"PATCH /repos/{req.repo_full_name}/issues/{issue_number} labels={','.join(labels)}",
+        issue.get("html_url", ""),
+    )
+
+    pr_number = _pull_number(req, group)
+    if pr_number:
+        github.comment(pr_number, comment)
+        reporter.tool(
+            f"Told PR #{pr_number} this was asked for again",
+            "add_issue_comment", "rest",
+            f"POST /repos/{req.repo_full_name}/issues/{pr_number}/comments",
+            issue_text.count_line(req.report_count, req.user_report_count),
+        )
+
+    db.update_escalation(
+        req.escalation_id,
+        status="updated",
+        issue_url=issue.get("html_url"),
+        issue_number=issue_number,
+    )
+    slack.notify(
+        f"Patchlet saw \"{req.title}\" again: {issue_text.count_line(req.report_count, req.user_report_count).lower()}."
+    )
+    return Outcome(
+        status="updated",
+        issue_url=str(issue.get("html_url") or ""),
+        pr_url=str((group or {}).get("pr_url") or ""),
+    )

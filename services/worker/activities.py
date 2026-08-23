@@ -31,6 +31,12 @@ async def file_issue(req: FeatureRequestInput) -> IssueRef:
     return await _guarded(req, "file_issue", lambda: pipeline.file_issue(req))
 
 
+@workflows.activity(start_to_close_timeout=timedelta(minutes=5), retry_policy_max_attempts=2)
+async def update_group(req: FeatureRequestInput) -> Outcome:
+    """One more report of a request that is already on GitHub: new count, new labels, new quote."""
+    return await _guarded(req, "update_group", lambda: pipeline.update_group(req))
+
+
 @workflows.activity(start_to_close_timeout=timedelta(minutes=10), retry_policy_max_attempts=2)
 async def inspect_repository(req: FeatureRequestInput, issue: IssueRef) -> Plan:
     return await _guarded(req, "inspect_repository", lambda: pipeline.inspect_repository(req, issue))

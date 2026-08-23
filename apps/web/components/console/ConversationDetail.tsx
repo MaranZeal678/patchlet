@@ -1,7 +1,12 @@
 "use client";
 
 import { outcomeLabel, outcomeTone } from "@/lib/agent/outcome";
-import { formatDateTime, formatDuration } from "@/lib/console/format";
+import {
+  formatDateTime,
+  formatDuration,
+  reportCountLabel,
+  requestStatusLabel,
+} from "@/lib/console/format";
 import { replayUrl } from "@/lib/console/replay";
 
 import type { ConversationDetail, ConversationTurn } from "@/lib/console/conversations";
@@ -79,6 +84,8 @@ export function ConversationDetailPanel({
               </section>
             ) : null}
 
+            {detail.group ? <GroupCard group={detail.group} /> : null}
+
             <Bullets title="Evidence" items={detail.evidence} quoted />
             <Bullets title="Next steps" items={detail.nextSteps} />
 
@@ -107,6 +114,45 @@ export function ConversationDetailPanel({
             ) : null}
           </>
         )}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * The request this conversation was filed under.
+ *
+ * One person's question is rarely only theirs, so the panel says which gap it joined and how much
+ * weight that gap now carries, and links to the request itself.
+ */
+function GroupCard({ group }: { group: NonNullable<ConversationDetail["group"]> }) {
+  return (
+    <section className="detail-section">
+      <h3 className="detail-section__title">Filed under</h3>
+      <div className="request-card">
+        <h4>{group.title}</h4>
+        <p>
+          {reportCountLabel(group.reportCount, group.userReportCount)} &middot; {group.priority}{" "}
+          priority &middot; {requestStatusLabel(group.status)}
+        </p>
+        <div className="trace-links mt-3">
+          <a className="trace-link" href={`/console/activity?request=${group.id}`}>
+            See the request
+            <span aria-hidden>&rarr;</span>
+          </a>
+          {group.issueUrl ? (
+            <a className="trace-link" href={group.issueUrl} target="_blank" rel="noreferrer">
+              {`Issue #${group.issueNumber ?? ""}`.trim()}
+              <span aria-hidden>&rarr;</span>
+            </a>
+          ) : null}
+          {group.prUrl ? (
+            <a className="trace-link" href={group.prUrl} target="_blank" rel="noreferrer">
+              Pull request
+              <span aria-hidden>&rarr;</span>
+            </a>
+          ) : null}
+        </div>
       </div>
     </section>
   );

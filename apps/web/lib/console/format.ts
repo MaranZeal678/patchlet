@@ -51,6 +51,42 @@ export function escalationLabel(status: string): string {
   return STATUS_LABEL[status] ?? status.replace(/_/g, " ");
 }
 
+/** A request group's state, in the words a person would use. */
+const REQUEST_STATUS_LABEL: Record<string, string> = {
+  observed: "noticed",
+  filed: "filed",
+  drafting: "drafting a change",
+  pr_open: "draft pr open",
+  awaiting_approval: "awaiting approval",
+  shipped: "shipped",
+  rejected: "not being built",
+};
+
+export function requestStatusLabel(status: string): string {
+  return REQUEST_STATUS_LABEL[status] ?? status.replace(/_/g, " ");
+}
+
+const REQUEST_STATUS_TONE: Record<string, string> = {
+  observed: "is-muted",
+  filed: "is-wait",
+  drafting: "is-run",
+  pr_open: "is-run",
+  awaiting_approval: "is-wait",
+  shipped: "is-good",
+  rejected: "is-bad",
+};
+
+export function requestStatusTone(status: string): string {
+  return REQUEST_STATUS_TONE[status] ?? "is-muted";
+}
+
+/** "Reported 3 times (1 by users)" - the weight behind a request, in one line. */
+export function reportCountLabel(reportCount: number, userReportCount: number): string {
+  const times = reportCount === 1 ? "once" : `${reportCount} times`;
+  const users = userReportCount === 1 ? "1 by a user" : `${userReportCount} by users`;
+  return `Reported ${times} (${users})`;
+}
+
 /** "4m 12s" - how long a conversation ran, or "-" when there is only one message. */
 export function formatDuration(ms: number | null): string {
   if (ms === null || !Number.isFinite(ms) || ms < 0) return "-";

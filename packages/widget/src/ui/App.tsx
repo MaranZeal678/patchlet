@@ -578,7 +578,15 @@ function applyEvent(turn: Turn, event: ChatEvent, conversationRef: { current: st
     case 'verdict':
       return { ...turn, verdict: event.verdict };
     case 'answer':
-      return { ...turn, answer: { text: event.text, steps: event.steps, escalation: event.escalation } };
+      return {
+        ...turn,
+        answer: {
+          text: event.text,
+          steps: event.steps,
+          escalation: event.escalation,
+          noted: event.noted,
+        },
+      };
     case 'error':
       return { ...turn, error: event.message };
   }
