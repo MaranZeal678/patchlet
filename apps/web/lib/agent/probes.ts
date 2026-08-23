@@ -90,15 +90,21 @@ export async function probeDocs(question: string, projectId: string): Promise<Pr
 /** Interface: does a control on the page in front of the user do this? */
 export function probeInterface(question: string, page: PageContext): ProbeResult {
   const started = Date.now();
-  const expanded = expand(question);
+  const wanted = concepts(question);
   const scored = page.affordances
-    .map((affordance: Affordance) => ({
-      affordance,
-      score: Math.max(
-        keywordScore(expanded, `${affordance.name} ${affordance.text ?? ""}`),
-        keywordScore(expanded, `${affordance.name} ${affordance.landmark ?? ""}`),
-      ),
-    }))
+    .map((affordance: Affordance) => {
+      const label = `${affordance.name} ${affordance.text ?? ""} ${affordance.landmark ?? ""}`;
+      const have = concepts(label);
+      // A control whose own words are all asked for is a match, however long the
+      // question was. Scoring only by question coverage buries short labels.
+      let shared = 0;
+      for (const token of have) if (wanted.has(token)) shared += 1;
+      const coverage = have.size === 0 ? 0 : shared / have.size;
+      return {
+        affordance,
+        score: Math.max(coverage, keywordScore(expand(question), label)),
+      };
+    })
     .sort((a, b) => b.score - a.score);
   const best = scored[0]?.score ?? 0;
   return {

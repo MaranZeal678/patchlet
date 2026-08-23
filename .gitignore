@@ -14,4 +14,4 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.tsbuildinfo
-apps/web/public/widget.js
+# apps/web/public/widget.js is committed so the dashboard deployment serves it
