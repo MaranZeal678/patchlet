@@ -42,6 +42,8 @@ export type ParsedSource = {
   sourceText: string | null;
   /** True when the pages came out of the reader rather than out of plain text. */
   scanned: boolean;
+  /** The uploaded file itself, kept so the console can show it next to what was read. */
+  original: File | null;
 };
 
 /** A chunk before it has an embedding and an ordinal. */
@@ -67,6 +69,8 @@ export type ConsoleDocument = {
   chunkCount: number;
   error: string | null;
   createdAt: string;
+  /** Object key of the stored original, when the source arrived as a file. */
+  storagePath: string | null;
 };
 
 /** One passage the retriever would hand the agent, as the "Test a question" box shows it. */
