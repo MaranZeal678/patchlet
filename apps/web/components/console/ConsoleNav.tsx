@@ -1,0 +1,41 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Mark } from "@/components/landing/Mark";
+
+const LINKS = [
+  { href: "/console", label: "Overview" },
+  { href: "/console/knowledge", label: "Knowledge" },
+  { href: "/console/repository", label: "Repository" },
+  { href: "/console/activity", label: "Activity" },
+] as const;
+
+/** The console's top bar. The exact match keeps Overview from staying lit on child pages. */
+export function ConsoleNav() {
+  const pathname = usePathname();
+
+  return (
+    <header className="app-bar">
+      <Link href="/" className="app-bar__brand">
+        <Mark className="h-[30px] w-[30px]" />
+        <span className="app-bar__wordmark">Patchlet</span>
+      </Link>
+      <nav className="app-nav" aria-label="Console">
+        {LINKS.map((link) => {
+          const active = pathname === link.href;
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              aria-current={active ? "page" : undefined}
+              className={`app-nav__tab${active ? " is-active" : ""}`}
+            >
+              {link.label}
+            </Link>
+          );
+        })}
+      </nav>
+    </header>
+  );
+}
