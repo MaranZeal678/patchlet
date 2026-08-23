@@ -1,0 +1,112 @@
+/** The single project the console manages, and the one form that edits it. */
+import { corsJson, preflight } from "@/lib/cors";
+import { getRepository } from "@/lib/github";
+import { embedSnippet, loadProject, toProject, widgetUrl } from "@/lib/console/project";
+import { loadCounts, loadWorkerHeartbeat } from "@/lib/console/counts";
+import { serviceClient } from "@/lib/supabase";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export function OPTIONS(): Response {
+  return preflight();
+}
+
+export async function GET(): Promise<Response> {
+  const project = await loadProject();
+  if (!project) {
+    return corsJson({ error: "no project has been seeded yet" }, { status: 404 });
+  }
+  const [counts, heartbeat] = await Promise.all([
+    loadCounts(project.id),
+    loadWorkerHeartbeat(project.id),
+  ]);
+  return corsJson({
+    project,
+    counts,
+    worker: { lastSeenAt: heartbeat, online: isRecent(heartbeat) },
+    embedSnippet: embedSnippet(project.embedKey),
+    widgetUrl: widgetUrl(),
+  });
+}
+
+/** The worker's heartbeat is a minute apart, so two minutes of silence means it is gone. */
+function isRecent(iso: string | null): boolean {
+  if (!iso) return false;
+  const seen = new Date(iso).getTime();
+  return Number.isFinite(seen) && Date.now() - seen < 120_000;
+}
+
+type Patch = {
+  repoFullName?: unknown;
+  siteUrl?: unknown;
+  settings?: unknown;
+};
+
+const REPO_PATTERN = /^[\w.-]+\/[\w.-]+$/;
+
+export async function PATCH(request: Request): Promise<Response> {
+  const project = await loadProject();
+  if (!project) {
+    return corsJson({ error: "no project has been seeded yet" }, { status: 404 });
+  }
+
+  const body = (await request.json().catch(() => ({}))) as Patch;
+  const update: Record<string, unknown> = {};
+
+  if (body.repoFullName !== undefined) {
+    if (typeof body.repoFullName !== "string" || !REPO_PATTERN.test(body.repoFullName.trim())) {
+      return corsJson({ error: "repoFullName must look like owner/name" }, { status: 400 });
+    }
+    const fullName = body.repoFullName.trim();
+    // The bind is only worth writing if the token can actually reach the repository.
+    let repository;
+    try {
+      repository = await getRepository(fullName);
+    } catch (error) {
+      return corsJson({ error: (error as Error).message }, { status: 502 });
+    }
+    if (!repository) {
+      return corsJson(
+        { error: `Patchlet cannot reach ${fullName}. Check the name and the token's access.` },
+        { status: 404 },
+      );
+    }
+    update.repo_full_name = repository.fullName;
+    update.repo_default_branch = repository.defaultBranch;
+  }
+
+  if (body.siteUrl !== undefined) {
+    if (typeof body.siteUrl !== "string") {
+      return corsJson({ error: "siteUrl must be a string" }, { status: 400 });
+    }
+    update.site_url = body.siteUrl.trim() || null;
+  }
+
+  if (body.settings !== undefined) {
+    if (typeof body.settings !== "object" || body.settings === null || Array.isArray(body.settings)) {
+      return corsJson({ error: "settings must be an object" }, { status: 400 });
+    }
+    update.settings = { ...project.settings, ...(body.settings as Record<string, unknown>) };
+  }
+
+  if (Object.keys(update).length === 0) {
+    return corsJson({ error: "nothing to update" }, { status: 400 });
+  }
+
+  const { data, error } = await serviceClient()
+    .from("project")
+    .update(update)
+    .eq("id", project.id)
+    .select(
+      "id, slug, name, embed_key, site_url, repo_full_name, repo_default_branch, settings, created_at",
+    )
+    .maybeSingle();
+
+  if (error || !data) {
+    return corsJson({ error: error?.message ?? "the update did not apply" }, { status: 500 });
+  }
+
+  const saved = toProject(data as Record<string, unknown>);
+  return corsJson({ project: saved, embedSnippet: embedSnippet(saved.embedKey), widgetUrl: widgetUrl() });
+}
