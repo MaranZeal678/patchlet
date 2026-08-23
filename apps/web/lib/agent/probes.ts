@@ -104,34 +104,45 @@ export async function probeDocs(
   }
 }
 
-/** Interface: does a control on the page in front of the user do this? */
-export function probeInterface(question: string, page: PageContext): ProbeResult {
+/**
+ * Interface: does a control on the page in front of the user do this?
+ *
+ * The question names a capability ("usage export"); a control only counts when
+ * its label covers that capability, not merely one of its words. "Usage" in the
+ * sidebar is not an export button, and matching it once sent the agent off to
+ * invent one.
+ */
+export function probeInterface(question: string, page: PageContext, feature = ""): ProbeResult {
   const started = Date.now();
-  const wanted = concepts(question);
+  const capability = concepts(expand(feature || question));
+  const featureTokens = concepts(feature || question);
   const scored = page.affordances
     .map((affordance: Affordance) => {
-      const label = `${affordance.name} ${affordance.text ?? ""} ${affordance.landmark ?? ""}`;
-      const have = concepts(label);
-      // A control whose own words are all asked for is a match, however long the
-      // question was. Scoring only by question coverage buries short labels.
+      const label = `${affordance.name} ${affordance.text ?? ""}`;
+      const have = concepts(expand(label));
+      // How much of the capability the control's own label accounts for.
+      let covered = 0;
+      for (const token of featureTokens) if (have.has(token)) covered += 1;
+      const featureCoverage = featureTokens.size === 0 ? 0 : covered / featureTokens.size;
+      // And how much of the label is about the capability, so a long generic
+      // label does not win on one shared word.
       let shared = 0;
-      for (const token of have) if (wanted.has(token)) shared += 1;
-      const coverage = have.size === 0 ? 0 : shared / have.size;
-      return {
-        affordance,
-        score: Math.max(coverage, keywordScore(expand(question), label)),
-      };
+      for (const token of have) if (capability.has(token)) shared += 1;
+      const labelFocus = have.size === 0 ? 0 : shared / have.size;
+      return { affordance, score: Math.min(featureCoverage, Math.max(labelFocus, 0.5)) };
     })
     .sort((a, b) => b.score - a.score);
   const best = scored[0]?.score ?? 0;
+  // A two-word capability needs both words on the control; longer ones need most of them.
+  const needed = featureTokens.size <= 2 ? 1 : 0.75;
+  const hit = best >= needed;
   return {
     probe: "interface",
-    hit: best >= 0.5,
+    hit,
     score: best,
-    summary:
-      best >= 0.5
-        ? `A control on this page matches (${best.toFixed(2)}).`
-        : "No control on this page matches.",
+    summary: hit
+      ? `A control on this page does this (${best.toFixed(2)}).`
+      : "No control on this page does this.",
     evidence: scored.slice(0, 5).map((entry) => ({
       id: entry.affordance.id,
       name: entry.affordance.name,

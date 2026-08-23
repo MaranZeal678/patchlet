@@ -187,7 +187,7 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
   }
   const [docs, ui, repository] = await Promise.all([
     probeDocs(`${question} ${understanding.feature}`, projectId, questionEmbedding),
-    Promise.resolve(probeInterface(`${question} ${understanding.feature}`, page)),
+    Promise.resolve(probeInterface(question, page, understanding.feature)),
     probeRepository(projectId, understanding.feature, input.repoFullName, input.defaultBranch),
   ]);
   const probes: ProbeResult[] = [docs, ui, repository];
@@ -272,7 +272,7 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
         {
           role: "system",
           content:
-            "You are a support agent embedded in a web page. Answer the question in one or two short sentences, then give the steps the user takes on the page in front of them. When the notes say something about this visitor, use it: tailor the answer to their role and what they are working on, and never ask again for something you already know. Every step target MUST be one of the listed element ids, exactly as written. Order the steps so the first one is a control that is on the page right now: if the flow continues inside a menu or dialog that is not open yet, make the first step the control that opens it and stop there. Never invent an id. Use at most 5 steps. Each caption is at most 12 words and starts with a verb. JSON only.",
+            "You are a support agent embedded in a web page. Answer ONLY from the documentation passages and the listed page elements. If they do not describe how to do exactly what was asked, say plainly that you could not find it and return no steps; never invent a button, page, or setting. Otherwise answer in one or two short sentences, then give the steps the user takes on the page in front of them. Every step target MUST be one of the listed element ids, exactly as written. Order the steps so the first one is a control that is on the page right now: if the flow continues inside a menu or dialog that is not open yet, make the first step the control that opens it and stop there. Never invent an id. Use at most 5 steps. Each caption is at most 12 words and starts with a verb. JSON only.",
         },
         {
           role: "user",
