@@ -1667,6 +1667,12 @@ body {
   font-size: 0.8rem;
 }
 
+.account-menu__note {
+  margin: 4px 12px 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .account-menu__github {
   display: inline-flex;
   align-items: center;

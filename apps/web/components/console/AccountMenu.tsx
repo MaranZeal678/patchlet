@@ -2,7 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { ConfirmDialog } from "@/components/console/ConfirmDialog";
 import { browserSupabase } from "@/lib/auth/browser";
+import type { ResetSummary } from "@/lib/demo/reset";
 
 type Props = {
   email: string;
@@ -26,6 +28,9 @@ export function AccountMenu({ email, company, githubLogin }: Props) {
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [askingReset, setAskingReset] = useState(false);
+  const [resetDone, setResetDone] = useState("");
   const [error, setError] = useState("");
   const root = useRef<HTMLDivElement | null>(null);
 
@@ -57,6 +62,24 @@ export function AccountMenu({ email, company, githubLogin }: Props) {
       setError(failure instanceof Error ? failure.message : "GitHub could not be disconnected.");
     } finally {
       setUnlinking(false);
+    }
+  }
+
+  async function resetDemo() {
+    setResetting(true);
+    setError("");
+    try {
+      const response = await fetch("/api/demo/reset", { method: "POST" });
+      const body = (await response.json()) as { summary?: ResetSummary; error?: string };
+      if (!response.ok || !body.summary) throw new Error(body.error ?? "The demo could not be reset.");
+      setResetDone(describeReset(body.summary));
+      setAskingReset(false);
+      router.refresh();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "The demo could not be reset.");
+      setAskingReset(false);
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -129,6 +152,16 @@ export function AccountMenu({ email, company, githubLogin }: Props) {
             </a>
           )}
           {error ? <p className="account-menu__error">{error}</p> : null}
+          {resetDone ? <p className="account-menu__note">{resetDone}</p> : null}
+          <button
+            type="button"
+            role="menuitem"
+            className="account-menu__item"
+            onClick={() => setAskingReset(true)}
+            disabled={resetting}
+          >
+            {resetting ? "Resetting the demo..." : "Reset demo"}
+          </button>
           <button
             type="button"
             role="menuitem"
@@ -140,8 +173,39 @@ export function AccountMenu({ email, company, githubLogin }: Props) {
           </button>
         </div>
       ) : null}
+
+      {askingReset ? (
+        <ConfirmDialog
+          title="Reset the demo?"
+          body={
+            <>
+              <p>
+                Every conversation, every reported request and the whole trace are deleted. On the
+                connected repository, the issues and pull requests Patchlet opened are closed and
+                its branches are removed.
+              </p>
+              <p>The knowledge base is left exactly as it is.</p>
+            </>
+          }
+          confirmLabel="Reset demo"
+          typeToConfirm="reset"
+          busy={resetting}
+          onConfirm={() => void resetDemo()}
+          onCancel={() => setAskingReset(false)}
+        />
+      ) : null}
     </div>
   );
+}
+
+/** What the reset actually did, in one line. */
+function describeReset(summary: ResetSummary): string {
+  const parts = [
+    `${summary.conversations} conversation${summary.conversations === 1 ? "" : "s"}`,
+    `${summary.escalations} request${summary.escalations === 1 ? "" : "s"}`,
+    `${summary.issuesClosed + summary.pullRequestsClosed} closed on GitHub`,
+  ];
+  return `Cleared ${parts.join(", ")}.`;
 }
 
 function GithubGlyph() {
