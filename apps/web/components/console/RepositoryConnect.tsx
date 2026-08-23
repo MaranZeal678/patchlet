@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
 type Repository = {
@@ -17,26 +19,43 @@ type Repository = {
 type Props = {
   initialRepoFullName: string | null;
   initialDefaultBranch: string | null;
+  /** The linked GitHub account, when a user completed the OAuth flow. */
+  githubLogin: string | null;
+  githubAvatar: string | null;
+  /** False when the deployment has no GitHub OAuth app, so only the server credential exists. */
+  oauthAvailable: boolean;
+  linkError: string;
 };
 
 /**
- * Connect GitHub, pick a repository, bind it to the project.
+ * Link a GitHub account, pick a repository, bind it to the project.
  *
- * "Connect" reaches for the repositories Patchlet's own GitHub credential can already see, so the
- * list is exactly what the agent will be allowed to open issues and pull requests in.
+ * Without a linked account the page still works: the repository list comes back through the
+ * server credential in GITHUB_TOKEN, which is exactly what the agent and the worker use.
  */
-export function RepositoryConnect({ initialRepoFullName, initialDefaultBranch }: Props) {
+export function RepositoryConnect({
+  initialRepoFullName,
+  initialDefaultBranch,
+  githubLogin,
+  githubAvatar,
+  oauthAvailable,
+  linkError,
+}: Props) {
+  const router = useRouter();
   const [bound, setBound] = useState<{ fullName: string; defaultBranch: string } | null>(
-    initialRepoFullName ? { fullName: initialRepoFullName, defaultBranch: initialDefaultBranch ?? "main" } : null,
+    initialRepoFullName
+      ? { fullName: initialRepoFullName, defaultBranch: initialDefaultBranch ?? "main" }
+      : null,
   );
-  const [connected, setConnected] = useState(false);
   const [repositories, setRepositories] = useState<Repository[]>([]);
+  const [picking, setPicking] = useState(false);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [savingFullName, setSavingFullName] = useState<string | null>(null);
-  const [error, setError] = useState("");
+  const [unlinking, setUnlinking] = useState(false);
+  const [error, setError] = useState(linkError);
 
-  const connect = useCallback(async () => {
+  const loadRepositories = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -44,43 +63,63 @@ export function RepositoryConnect({ initialRepoFullName, initialDefaultBranch }:
       const result = (await response.json()) as { repositories?: Repository[]; error?: string };
       if (!response.ok) throw new Error(result.error ?? "GitHub did not answer.");
       setRepositories(result.repositories ?? []);
-      setConnected(true);
-    } catch (connectError) {
-      setError(connectError instanceof Error ? connectError.message : "Could not reach GitHub.");
+      setPicking(true);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Could not reach GitHub.");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const bind = useCallback(async (repository: Repository) => {
-    setSavingFullName(repository.fullName);
+  const bind = useCallback(
+    async (repository: Repository) => {
+      setSavingFullName(repository.fullName);
+      setError("");
+      try {
+        const response = await fetch("/api/project", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ repoFullName: repository.fullName }),
+        });
+        const result = (await response.json()) as {
+          project?: { repoFullName: string | null; repoDefaultBranch: string | null };
+          error?: string;
+        };
+        if (!response.ok || !result.project?.repoFullName) {
+          throw new Error(result.error ?? "The repository could not be bound.");
+        }
+        setBound({
+          fullName: result.project.repoFullName,
+          defaultBranch: result.project.repoDefaultBranch ?? repository.defaultBranch,
+        });
+        setPicking(false);
+        setRepositories([]);
+        setSearch("");
+      } catch (bindError) {
+        setError(bindError instanceof Error ? bindError.message : "The repository could not be bound.");
+      } finally {
+        setSavingFullName(null);
+      }
+    },
+    [],
+  );
+
+  const unlink = useCallback(async () => {
+    setUnlinking(true);
     setError("");
     try {
-      const response = await fetch("/api/project", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ repoFullName: repository.fullName }),
-      });
-      const result = (await response.json()) as {
-        project?: { repoFullName: string | null; repoDefaultBranch: string | null };
-        error?: string;
-      };
-      if (!response.ok || !result.project?.repoFullName) {
-        throw new Error(result.error ?? "The repository could not be bound.");
-      }
-      setBound({
-        fullName: result.project.repoFullName,
-        defaultBranch: result.project.repoDefaultBranch ?? repository.defaultBranch,
-      });
-      setConnected(false);
+      const response = await fetch("/api/github/disconnect", { method: "POST" });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "The account could not be unlinked.");
+      setPicking(false);
       setRepositories([]);
-      setSearch("");
-    } catch (bindError) {
-      setError(bindError instanceof Error ? bindError.message : "The repository could not be bound.");
+      router.refresh();
+    } catch (unlinkError) {
+      setError(unlinkError instanceof Error ? unlinkError.message : "The account could not be unlinked.");
     } finally {
-      setSavingFullName(null);
+      setUnlinking(false);
     }
-  }, []);
+  }, [router]);
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -92,11 +131,13 @@ export function RepositoryConnect({ initialRepoFullName, initialDefaultBranch }:
     );
   }, [repositories, search]);
 
+  const connected = Boolean(githubLogin) || !oauthAvailable;
+
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.7fr)]">
       <section className="panel">
         <div className="panel__head">
-          <h2>{bound ? "Connected repository" : connected ? "Choose a repository" : "Connect GitHub"}</h2>
+          <h2>{connected ? "GitHub" : "Connect GitHub"}</h2>
           {bound ? <span className="count-pill">bound</span> : null}
         </div>
 
@@ -106,40 +147,60 @@ export function RepositoryConnect({ initialRepoFullName, initialDefaultBranch }:
           </div>
         ) : null}
 
-        {bound ? (
-          <BoundRepository
-            fullName={bound.fullName}
-            defaultBranch={bound.defaultBranch}
-            onChange={() => {
-              setBound(null);
-              void connect();
-            }}
-          />
-        ) : connected ? (
-          <RepositoryPicker
-            repositories={filtered}
-            total={repositories.length}
-            search={search}
-            savingFullName={savingFullName}
-            onSearch={setSearch}
-            onPick={bind}
-          />
+        {connected ? (
+          <div className="grid gap-5">
+            <Identity
+              login={githubLogin}
+              avatar={githubAvatar}
+              unlinking={unlinking}
+              onUnlink={() => void unlink()}
+            />
+
+            {bound && !picking ? (
+              <BoundRepository
+                fullName={bound.fullName}
+                defaultBranch={bound.defaultBranch}
+                onChange={() => void loadRepositories()}
+              />
+            ) : picking ? (
+              <RepositoryPicker
+                repositories={filtered}
+                total={repositories.length}
+                search={search}
+                savingFullName={savingFullName}
+                onSearch={setSearch}
+                onPick={bind}
+              />
+            ) : (
+              <div className="grid gap-4">
+                <p className="field-hint m-0">
+                  Choose the repository the agent reads for evidence and files its issues and draft
+                  pull requests in.
+                </p>
+                <div>
+                  <button
+                    type="button"
+                    className="primary-action"
+                    onClick={() => void loadRepositories()}
+                    disabled={loading}
+                  >
+                    {loading ? "Reaching GitHub..." : "Choose a repository"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="grid gap-4">
             <p className="field-hint m-0">
               Patchlet needs one repository to read for evidence and to open issues and draft pull
-              requests in. Connect GitHub to choose it.
+              requests in. Link your GitHub account to choose it.
             </p>
             <div>
-              <button
-                type="button"
-                className="primary-action"
-                onClick={() => void connect()}
-                disabled={loading}
-              >
+              <a className="primary-action" href="/api/github/connect">
                 <GithubGlyph />
-                {loading ? "Reaching GitHub..." : "Connect GitHub"}
-              </button>
+                Connect GitHub
+              </a>
             </div>
           </div>
         )}
@@ -156,6 +217,68 @@ export function RepositoryConnect({ initialRepoFullName, initialDefaultBranch }:
           <li>Nothing merges until a developer approves it on the Activity page.</li>
         </ul>
       </aside>
+    </div>
+  );
+}
+
+/** The linked account, or the honest statement that the server credential is what is in use. */
+function Identity({
+  login,
+  avatar,
+  unlinking,
+  onUnlink,
+}: {
+  login: string | null;
+  avatar: string | null;
+  unlinking: boolean;
+  onUnlink: () => void;
+}) {
+  if (!login) {
+    return (
+      <div className="github-identity">
+        <span className="github-identity__avatar grid place-items-center">
+          <GithubGlyph />
+        </span>
+        <span className="grid">
+          <span className="github-identity__login">Patchlet</span>
+          <span className="github-identity__source">Connected through the server credential</span>
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="github-identity">
+      {avatar ? (
+        <Image
+          className="github-identity__avatar"
+          src={avatar}
+          alt=""
+          width={34}
+          height={34}
+          unoptimized
+        />
+      ) : (
+        <span className="github-identity__avatar grid place-items-center">
+          <GithubGlyph />
+        </span>
+      )}
+      <span className="grid">
+        <a
+          className="github-identity__login"
+          href={`https://github.com/${login}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          @{login}
+        </a>
+        <span className="github-identity__source">Connected through this GitHub account</span>
+      </span>
+      <span className="github-identity__actions">
+        <button type="button" className="link-button" onClick={onUnlink} disabled={unlinking}>
+          {unlinking ? "Unlinking..." : "Unlink"}
+        </button>
+      </span>
     </div>
   );
 }

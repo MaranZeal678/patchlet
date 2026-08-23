@@ -232,8 +232,10 @@ Also exported:
 ## 3. HTTP API
 
 Routes live in `apps/web/app/api`. Widget-facing routes take the public embed key as `key`, send
-`Access-Control-Allow-Origin: *`, and answer `OPTIONS` preflight. Console routes have no auth
-because there is a single seeded project.
+`Access-Control-Allow-Origin: *`, and answer `OPTIONS` preflight. Every `/api/*` route stays
+public, because the widget and the worker call them without a browser session; what gates the
+console is `apps/web/proxy.ts`, which sends anonymous visits to `/console/**` to `/signin`. There
+is a single seeded project, so every signed-in user sees the same one.
 
 | Route | Body / query | Returns |
 |---|---|---|
@@ -253,6 +255,10 @@ because there is a single seeded project.
 | `POST /api/escalations/:id/approve` | `{approved: boolean, note?: string}` | `{ok: true, status}` |
 | `GET /api/trace/stream` | `?since=&conversationId=&escalationId=` | SSE; `id:` is the `trace_event.id`, `event: trace`, `data: TraceEvent` |
 | `GET /api/trace` | same filters, `?since=&limit=` | `{events: TraceEvent[]}` backfill |
+| `POST /api/auth/signup` | `{email, password, company}` | creates the account already confirmed through the Supabase admin API; the browser then signs in with the password |
+| `GET /api/github/connect` | - | redirects to GitHub's authorize page with `scope=repo` and a signed state cookie |
+| `GET /api/github/callback` | `?code=&state=` | stores `github_login`, `github_avatar` and the encrypted token on the project, then redirects to `/console/repository` |
+| `POST /api/github/disconnect` | - | `{ok:true}`, clears the linked account |
 | `GET /api/health` | - | `{ok, db, mistral}` |
 
 `POST /api/escalations/:id/approve` under the `mistral` engine queries the workflow's pending inputs

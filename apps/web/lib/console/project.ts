@@ -12,10 +12,13 @@ export type ConsoleProject = {
   repoDefaultBranch: string | null;
   settings: Record<string, unknown>;
   createdAt: string;
+  /** The linked GitHub account. The access token itself never leaves the server. */
+  githubLogin: string | null;
+  githubAvatar: string | null;
 };
 
-const COLUMNS =
-  "id, slug, name, embed_key, site_url, repo_full_name, repo_default_branch, settings, created_at";
+export const PROJECT_COLUMNS =
+  "id, slug, name, embed_key, site_url, repo_full_name, repo_default_branch, settings, created_at, github_login, github_avatar";
 
 function toProject(row: Record<string, unknown>): ConsoleProject {
   return {
@@ -28,6 +31,8 @@ function toProject(row: Record<string, unknown>): ConsoleProject {
     repoDefaultBranch: row.repo_default_branch === null ? null : String(row.repo_default_branch),
     settings: (row.settings ?? {}) as Record<string, unknown>,
     createdAt: String(row.created_at),
+    githubLogin: row.github_login ? String(row.github_login) : null,
+    githubAvatar: row.github_avatar ? String(row.github_avatar) : null,
   };
 }
 
@@ -35,7 +40,7 @@ function toProject(row: Record<string, unknown>): ConsoleProject {
 export async function loadProject(): Promise<ConsoleProject | null> {
   const { data } = await serviceClient()
     .from("project")
-    .select(COLUMNS)
+    .select(PROJECT_COLUMNS)
     .eq("slug", projectSlug())
     .maybeSingle();
   return data ? toProject(data as Record<string, unknown>) : null;

@@ -28,11 +28,25 @@ export const supabaseUrl = (): string => required("SUPABASE_URL");
 /** Service role key. Server-side only; it bypasses row level security. */
 export const supabaseServiceRoleKey = (): string => required("SUPABASE_SERVICE_ROLE_KEY");
 
-/** Anon key. Not read by the app today, kept for completeness. */
+/** Anon key. The public value behind NEXT_PUBLIC_SUPABASE_ANON_KEY. */
 export const supabaseAnonKey = (): string => required("SUPABASE_ANON_KEY");
 
 /** GitHub token used by the repository probe and the repository connection check. */
 export const githubToken = (): string => required("GITHUB_TOKEN");
+
+/**
+ * The GitHub OAuth app that lets a console user link their own account.
+ *
+ * All three variables travel together, so this returns null unless the whole set is present. The
+ * repository page then falls back to the server credential in GITHUB_TOKEN.
+ */
+export function githubOauthApp(): { clientId: string; clientSecret: string; redirect: string } | null {
+  const clientId = process.env.GITHUB_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GITHUB_OAUTH_CLIENT_SECRET;
+  const redirect = process.env.GITHUB_OAUTH_REDIRECT;
+  if (!clientId || !clientSecret || !redirect) return null;
+  return { clientId, clientSecret, redirect };
+}
 
 /** Vercel token used to watch the target project's deployments. */
 export const vercelToken = (): string => required("VERCEL_TOKEN");

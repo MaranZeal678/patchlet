@@ -1,7 +1,7 @@
 /** The single project the console manages, and the one form that edits it. */
 import { corsJson, preflight } from "@/lib/cors";
 import { getRepository } from "@/lib/github";
-import { embedSnippet, loadProject, toProject, widgetUrl } from "@/lib/console/project";
+import { PROJECT_COLUMNS, embedSnippet, loadProject, toProject, widgetUrl } from "@/lib/console/project";
 import { loadCounts, loadWorkerStatus } from "@/lib/console/counts";
 import { serviceClient } from "@/lib/supabase";
 
@@ -91,9 +91,7 @@ export async function PATCH(request: Request): Promise<Response> {
     .from("project")
     .update(update)
     .eq("id", project.id)
-    .select(
-      "id, slug, name, embed_key, site_url, repo_full_name, repo_default_branch, settings, created_at",
-    )
+    .select(PROJECT_COLUMNS)
     .maybeSingle();
 
   if (error || !data) {
