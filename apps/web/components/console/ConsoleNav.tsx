@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AccountMenu } from "@/components/console/AccountMenu";
+import { NotificationBell } from "@/components/console/NotificationBell";
 import { Mark } from "@/components/landing/Mark";
 
 const LINKS = [
@@ -44,7 +45,10 @@ export function ConsoleNav({ email, company, githubLogin }: Props) {
           );
         })}
       </nav>
-      <AccountMenu email={email} company={company} githubLogin={githubLogin} />
+      <div className="app-bar__end">
+        <NotificationBell />
+        <AccountMenu email={email} company={company} githubLogin={githubLogin} />
+      </div>
     </header>
   );
 }

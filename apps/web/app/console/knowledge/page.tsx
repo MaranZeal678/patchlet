@@ -20,7 +20,11 @@ export default async function KnowledgePage() {
       />
 
       {project ? (
-        <KnowledgeConsole initialDocuments={documents} siteUrl={project.siteUrl} />
+        <KnowledgeConsole
+          initialDocuments={documents}
+          siteUrl={project.siteUrl}
+          repoBound={Boolean(project.repoFullName)}
+        />
       ) : (
         <div className="notice is-error">
           No project has been seeded yet. Run the migration and the seed script, then reload.

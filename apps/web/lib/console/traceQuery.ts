@@ -6,8 +6,12 @@ export type TraceFilters = {
   projectId: string;
   conversationId: string | null;
   escalationId: string | null;
+  /** One trace kind, when a caller only wants those rows (the heartbeat asks for `status`). */
+  kind: string | null;
   since: number;
   limit: number;
+  /** Newest first. The live tail reads forward; a caller after the latest row reads back. */
+  newestFirst: boolean;
 };
 
 /** Parses the filters both `/api/trace` and `/api/trace/stream` accept. */
@@ -18,8 +22,10 @@ export function readFilters(url: URL, projectId: string): TraceFilters {
     projectId,
     conversationId: url.searchParams.get("conversationId") || null,
     escalationId: url.searchParams.get("escalationId") || null,
+    kind: url.searchParams.get("kind") || null,
     since: Number.isFinite(since) && since > 0 ? since : 0,
     limit: Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 500) : 300,
+    newestFirst: url.searchParams.get("order") === "desc",
   };
 }
 
@@ -35,8 +41,10 @@ export async function fetchTrace(filters: TraceFilters): Promise<TraceEvent[]> {
     .select("id, project_id, conversation_id, escalation_id, source, kind, status, title, detail, created_at")
     .eq("project_id", filters.projectId)
     .gt("id", filters.since)
-    .order("id", { ascending: true })
+    .order("id", { ascending: !filters.newestFirst })
     .limit(filters.limit);
+
+  if (filters.kind) query = query.eq("kind", filters.kind);
 
   if (filters.conversationId && filters.escalationId) {
     query = query.or(

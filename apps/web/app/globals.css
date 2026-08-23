@@ -1067,6 +1067,36 @@ body {
   letter-spacing: 0.06em;
 }
 
+.detail-bullets {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  list-style: disc;
+}
+
+.detail-bullets li::marker {
+  color: var(--sage);
+}
+
+/* Evidence is the user's own words, so it is set as a quotation rather than as prose. */
+.detail-bullets.is-quoted {
+  padding-left: 0;
+  list-style: none;
+}
+
+.detail-bullets.is-quoted li {
+  padding-left: 12px;
+  border-left: 2px solid var(--sage);
+  color: var(--muted);
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  font-style: italic;
+}
+
 .transcript {
   display: grid;
   gap: 12px;
@@ -1444,6 +1474,10 @@ body {
 
 .account {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .account-trigger {
@@ -1607,6 +1641,146 @@ body {
 }
 
 /* --- GitHub connection ------------------------------------------------------------ */
+
+.app-bar__end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* The small mark beside the avatar, saying a GitHub account is linked. */
+.account-github {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+.account-menu__error {
+  margin: 4px 12px 0;
+  color: #8b2f20;
+  font-size: 0.8rem;
+}
+
+.account-menu__note {
+  margin: 4px 12px 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.account-menu__github {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* --- Notifications ---------------------------------------------------------------- */
+
+.bell {
+  position: relative;
+}
+
+.bell__trigger {
+  position: relative;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--muted);
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.bell__trigger:hover,
+.bell__trigger.is-open {
+  border-color: var(--hairline);
+  background: rgba(255, 253, 247, 0.9);
+  color: var(--ink);
+}
+
+.bell__count {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--panel);
+  font-size: 0.64rem;
+  font-weight: 800;
+  line-height: 16px;
+}
+
+.bell__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  width: min(340px, calc(100vw - 32px));
+  padding: 6px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: var(--shadow-lift);
+}
+
+.bell__head {
+  padding: 8px 12px 6px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.bell__empty {
+  margin: 0;
+  padding: 4px 12px 12px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.bell__list {
+  display: grid;
+  max-height: 320px;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.bell__item {
+  display: grid;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  color: var(--ink);
+}
+
+.bell__item:hover {
+  background: var(--accent-soft);
+}
+
+.bell__item-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.bell__item-meta {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
 
 .github-identity {
   display: flex;
@@ -1860,6 +2034,119 @@ body {
 
 .row-action.is-danger:hover:not(:disabled) {
   background: #f8ded8;
+}
+
+/* --- Knowledge bar, gate and confirmations ---------------------------------------- */
+
+.kb-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.agent-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: rgba(255, 253, 247, 0.7);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+/* Something the agent still needs, said once, above the work rather than in front of it. */
+.gate-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 12px;
+  background: var(--accent-soft);
+}
+
+.gate-banner strong {
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.gate-banner span {
+  flex: 1 1 320px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.confirm__scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(23, 32, 28, 0.38);
+  cursor: pointer;
+}
+
+.confirm__panel {
+  position: relative;
+  display: grid;
+  width: min(460px, 100%);
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow-lift);
+}
+
+.confirm__title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.3rem;
+  font-weight: 500;
+}
+
+.confirm__body {
+  display: grid;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.confirm__body p {
+  margin: 0;
+}
+
+.confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.primary-action.is-danger {
+  background: #8b2f20;
+}
+
+.primary-action.is-danger:hover:not(:disabled) {
+  background: #74271b;
 }
 
 /* --- Preview drawer ---------------------------------------------------------------- */

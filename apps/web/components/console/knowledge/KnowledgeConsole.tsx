@@ -1,23 +1,30 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
+import { AgentLive } from "@/components/console/AgentLive";
 import type { ConsoleDocument } from "@/lib/ingest/types";
 import { AddSource } from "./AddSource";
 import { PreviewDrawer } from "./PreviewDrawer";
+import { RecreateIndex } from "./RecreateIndex";
 import { SourceList } from "./SourceList";
 import { TestQuestion } from "./TestQuestion";
 
 type Props = {
   initialDocuments: ConsoleDocument[];
   siteUrl: string | null;
+  /** Without a repository the agent can read, but it cannot file anything it finds missing. */
+  repoBound: boolean;
 };
 
 /** Adding sources, seeing what came out of them, and proving what the agent would retrieve. */
-export function KnowledgeConsole({ initialDocuments, siteUrl }: Props) {
+export function KnowledgeConsole({ initialDocuments, siteUrl, repoBound }: Props) {
   const [documents, setDocuments] = useState(initialDocuments);
   const [previewing, setPreviewing] = useState<ConsoleDocument | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  // Sources are permanent; "this session" is what the person in front of the screen just added.
+  const [addedHere, setAddedHere] = useState(0);
 
   const stats = useMemo(() => summarise(documents), [documents]);
 
@@ -91,8 +98,36 @@ export function KnowledgeConsole({ initialDocuments, siteUrl }: Props) {
     }
   }, []);
 
+  const added = useCallback(
+    (document: ConsoleDocument) => {
+      setAddedHere((value) => value + 1);
+      upsert(document);
+    },
+    [upsert],
+  );
+
   return (
     <>
+      <div className="kb-bar mb-6">
+        <AgentLive />
+        <RecreateIndex documents={documents} onDocument={upsert} />
+      </div>
+
+      {repoBound ? null : (
+        // Answering only needs these sources, so this says what is still missing and nothing
+        // on this page waits for it.
+        <div className="gate-banner mb-6" role="status">
+          <strong>Connect a repository so the agent can file requests it cannot answer</strong>
+          <span>
+            Everything here already works. A repository is what lets Patchlet open the issue and
+            the draft pull request when a question turns out to be a missing feature.
+          </span>
+          <Link href="/console/repository" className="link-button">
+            Repository
+          </Link>
+        </div>
+      )}
+
       <div className="stat-grid mb-6">
         <Stat value={String(stats.sources)} label="Sources" />
         <Stat value={String(stats.chunks)} label="Chunks" />
@@ -101,6 +136,7 @@ export function KnowledgeConsole({ initialDocuments, siteUrl }: Props) {
           value={stats.meanConfidence === null ? "-" : stats.meanConfidence.toFixed(2)}
           label="Mean confidence"
         />
+        <Stat value={String(addedHere)} label="Added this session" />
       </div>
 
       {error ? (
@@ -110,7 +146,7 @@ export function KnowledgeConsole({ initialDocuments, siteUrl }: Props) {
       ) : null}
 
       <div className="kb-grid mb-6">
-        <AddSource siteUrl={siteUrl} onAdded={upsert} />
+        <AddSource siteUrl={siteUrl} onAdded={added} />
 
         <section className="panel">
           <div className="panel__head">

@@ -40,6 +40,7 @@ export function ConversationDetailPanel({
               <span>
                 {detail.messageCount} message{detail.messageCount === 1 ? "" : "s"}
               </span>
+              {detail.closeReason ? <span>{detail.closeReason}</span> : null}
             </div>
           ) : null}
         </div>
@@ -69,6 +70,18 @@ export function ConversationDetailPanel({
               </section>
             ) : null}
 
+            {detail.resolution ? (
+              <section className="detail-section">
+                <h3 className="detail-section__title">
+                  {detail.outcome === "solved" ? "Resolution" : "Where it was left"}
+                </h3>
+                <p className="detail-summary">{detail.resolution}</p>
+              </section>
+            ) : null}
+
+            <Bullets title="Evidence" items={detail.evidence} quoted />
+            <Bullets title="Next steps" items={detail.nextSteps} />
+
             <section className="detail-section">
               <h3 className="detail-section__title">Transcript</h3>
               {detail.messages.length === 0 ? (
@@ -95,6 +108,30 @@ export function ConversationDetailPanel({
           </>
         )}
       </div>
+    </section>
+  );
+}
+
+/** A short list the model produced, or nothing at all when it produced none. */
+function Bullets({
+  title,
+  items,
+  quoted = false,
+}: {
+  title: string;
+  items: string[] | null;
+  /** Evidence is the user's own words, so it is shown as a quotation. */
+  quoted?: boolean;
+}) {
+  if (!items || items.length === 0) return null;
+  return (
+    <section className="detail-section">
+      <h3 className="detail-section__title">{title}</h3>
+      <ul className={`detail-bullets${quoted ? " is-quoted" : ""}`}>
+        {items.map((item, index) => (
+          <li key={index}>{item}</li>
+        ))}
+      </ul>
     </section>
   );
 }

@@ -1,14 +1,14 @@
 /**
- * Closes a conversation out: how it ended, and one sentence saying what happened.
+ * Closes a conversation out: how it ended, and everything the console shows about it.
  *
  * This runs after the assistant's message is stored, so a failure here costs the console a
- * summary line and never costs the user their answer.
+ * detail panel and never costs the user their answer.
  */
 import { MODELS } from "@patchlet/shared";
 import type { Step, Verdict } from "@patchlet/shared";
-import { chatText } from "../mistral";
+import { chatJson } from "../mistral";
 import { serviceClient } from "../supabase";
-import { deriveOutcome, type ConversationOutcome } from "./outcome";
+import { deriveOutcome, reconcileOutcome, type ConversationOutcome } from "./outcome";
 
 export type CloseInput = {
   conversationId: string;
@@ -18,11 +18,80 @@ export type CloseInput = {
   verdict: Verdict;
 };
 
-const INSTRUCTION =
-  "Summarise one support exchange in a single sentence of at most 22 words, past tense, no greeting, no quotes. Say what the user wanted and what the agent did about it.";
+/** What the model is asked for, once the untrusted answer has been coerced into shape. */
+export type ConversationDetailFields = {
+  summary: string;
+  /** Verbatim from the user, so a product decision can be traced back to their words. */
+  evidence: string[];
+  nextSteps: string[];
+  resolution: string;
+  closeReason: string;
+  /** Only ever used to promote an outcome to `product_bug`; see `reconcileOutcome`. */
+  outcome: string | null;
+};
 
-async function writeSummary(input: CloseInput): Promise<string> {
-  const text = await chatText(
+const INSTRUCTION = [
+  "Summarise one support exchange for the team that owns the product. Answer in JSON.",
+  "summary: one sentence of at most 22 words, past tense, no greeting, no quotes.",
+  "outcome: solved when the agent showed the user how to do it; product_bug when the user reported something broken, erroring or behaving wrongly; missing_feature when they asked for something the product does not have; unresolved otherwise.",
+  "evidence: up to three short quotes copied word for word from the user's message that support the outcome. Copy exactly or leave the list empty.",
+  "next_steps: up to three imperative sentences saying what the team should do. Empty when nothing is needed.",
+  "resolution: the agent's closing answer in one sentence.",
+  "close_reason: three to six words saying why the conversation ended here, such as 'user was shown the steps' or 'reported to the developers'.",
+].join("\n");
+
+const SCHEMA = {
+  type: "object",
+  properties: {
+    summary: { type: "string" },
+    outcome: {
+      type: "string",
+      enum: ["solved", "product_bug", "missing_feature", "unresolved"],
+    },
+    evidence: { type: "array", items: { type: "string" } },
+    next_steps: { type: "array", items: { type: "string" } },
+    resolution: { type: "string" },
+    close_reason: { type: "string" },
+  },
+  required: ["summary", "outcome", "evidence", "next_steps", "resolution", "close_reason"],
+  additionalProperties: false,
+} as const;
+
+function line(value: unknown, limit: number): string {
+  return typeof value === "string" ? value.trim().replace(/^["']|["']$/g, "").slice(0, limit) : "";
+}
+
+function bullets(value: unknown, limit: number): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => line(entry, 300))
+    .filter((entry) => entry !== "")
+    .slice(0, limit);
+}
+
+/**
+ * Coerces the model's answer into the fields the console stores.
+ *
+ * Evidence is meant to be the user's own words, so anything the model did not actually copy from
+ * the question is dropped rather than shown to a reader as a quote.
+ */
+export function parseDetail(raw: unknown, question: string): ConversationDetailFields {
+  const fields = (raw ?? {}) as Record<string, unknown>;
+  const haystack = question.toLowerCase();
+  return {
+    summary: line(fields.summary, 400),
+    evidence: bullets(fields.evidence, 3).filter((quote) =>
+      haystack.includes(quote.toLowerCase()),
+    ),
+    nextSteps: bullets(fields.next_steps, 3),
+    resolution: line(fields.resolution, 400),
+    closeReason: line(fields.close_reason, 80),
+    outcome: typeof fields.outcome === "string" ? fields.outcome : null,
+  };
+}
+
+async function describe(input: CloseInput): Promise<ConversationDetailFields> {
+  const raw = await chatJson<unknown>(
     MODELS.understand,
     [
       { role: "system", content: INSTRUCTION },
@@ -33,24 +102,34 @@ async function writeSummary(input: CloseInput): Promise<string> {
         }\nOutcome of the checks: ${input.verdict.outcome}`,
       },
     ],
-    { maxTokens: 120 },
+    SCHEMA as unknown as Record<string, unknown>,
+    { name: "conversation_detail" },
   );
-  return text.trim().replace(/^["']|["']$/g, "").slice(0, 400);
+  return parseDetail(raw, input.question);
 }
 
-/** Derives the outcome, writes a one-sentence summary, and stores both on the conversation. */
+/** Derives the outcome, writes the detail the console shows, and stores both. */
 export async function closeConversation(input: CloseInput): Promise<ConversationOutcome> {
-  const outcome = deriveOutcome(input);
-  let summary = "";
+  const derived = deriveOutcome(input);
+  let detail: ConversationDetailFields | null = null;
   try {
-    summary = await writeSummary(input);
+    detail = await describe(input);
   } catch {
-    summary = "";
+    detail = null;
   }
+
+  const outcome = reconcileOutcome(derived, detail?.outcome ?? null);
 
   await serviceClient()
     .from("conversation")
-    .update({ outcome, ...(summary ? { summary } : {}) })
+    .update({
+      outcome,
+      ...(detail?.summary ? { summary: detail.summary } : {}),
+      ...(detail?.evidence.length ? { evidence: detail.evidence } : {}),
+      ...(detail?.nextSteps.length ? { next_steps: detail.nextSteps } : {}),
+      ...(detail?.resolution ? { resolution: detail.resolution } : {}),
+      ...(detail?.closeReason ? { close_reason: detail.closeReason } : {}),
+    })
     .eq("id", input.conversationId);
 
   return outcome;

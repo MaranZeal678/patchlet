@@ -1,9 +1,15 @@
 #!/usr/bin/env node
-// Resets the demo: closes the worker's issues and PRs in the target repository, deletes its
-// branches, moves `main` back to the `demo-baseline` tag, and clears escalations, conversations
-// and trace events in Supabase. Run through vault-exec so the tokens are in the environment.
+// Resets the demo: closes the worker's issues and pull requests in the target repository, deletes
+// its branches, clears escalations, conversations and trace events, and moves `main` back to the
+// `demo-baseline` tag. Run through vault-exec so the tokens are in the environment.
 //
 //   node scripts/reset-demo.mjs [--dry-run] [--skip-main] [--repo owner/name]
+//
+// The knowledge base is never touched: sources take minutes to read and cost money to embed.
+//
+// Everything except the `main` reset is shared with the console's Reset demo action and lives in
+// apps/web/lib/demo/reset.ts. Moving `main` stays here, because a force push is not something a
+// button in a browser should do.
 //
 // `--skip-main` leaves the `main` branch and the tag alone (use it while the target repository is
 // still being set up, so the tag is not created at a placeholder commit).
@@ -13,18 +19,21 @@
 // followed by `git push origin demo-baseline`) and does not move `main`. To pick a new baseline,
 // delete the tag on GitHub and run the script again from the commit you want.
 
+// Node strips the types on its own. `npm run demo:reset` disables the typeless-package warning
+// this raises, because apps/web is a Next app and does not declare "type": "module".
+import { resetDemo } from "../apps/web/lib/demo/reset.ts";
+
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const skipMain = args.includes("--skip-main");
 const repoArg = args.indexOf("--repo");
 const REPO = repoArg >= 0 ? args[repoArg + 1] : "AadiDahake/not-mistral";
-const LABEL = "patchlet";
-const BRANCH_PREFIX = "patchlet/";
+const PROJECT_SLUG = process.env.PATCHLET_PROJECT_SLUG ?? "not-mistral";
 const BASELINE_TAG = "demo-baseline";
 
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN ?? null;
+const SUPABASE_URL = process.env.SUPABASE_URL ?? null;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? null;
 
 const log = (line) => console.log(`${dryRun ? "[dry-run] " : ""}${line}`);
 
@@ -45,34 +54,16 @@ async function gh(method, path, body) {
   return response.json();
 }
 
-async function closeIssues() {
-  const issues = (await gh("GET", `/repos/${REPO}/issues?state=open&labels=${LABEL}&per_page=100`)) ?? [];
-  const plain = issues.filter((issue) => !issue.pull_request);
-  for (const issue of plain) {
-    log(`close issue #${issue.number}: ${issue.title}`);
-    if (!dryRun) await gh("PATCH", `/repos/${REPO}/issues/${issue.number}`, { state: "closed", state_reason: "not_planned" });
-  }
-  return plain.length;
-}
-
-async function closePullRequests() {
-  const pulls = (await gh("GET", `/repos/${REPO}/pulls?state=open&per_page=100`)) ?? [];
-  const ours = pulls.filter((pr) => pr.head.ref.startsWith(BRANCH_PREFIX));
-  for (const pr of ours) {
-    log(`close pull request #${pr.number}: ${pr.title} (${pr.head.ref})`);
-    if (!dryRun) await gh("PATCH", `/repos/${REPO}/pulls/${pr.number}`, { state: "closed" });
-  }
-  return ours.length;
-}
-
-async function deleteBranches() {
-  const refs = (await gh("GET", `/repos/${REPO}/git/matching-refs/heads/${BRANCH_PREFIX}`)) ?? [];
-  for (const ref of refs) {
-    const name = ref.ref.replace("refs/heads/", "");
-    log(`delete branch ${name}`);
-    if (!dryRun) await gh("DELETE", `/repos/${REPO}/git/refs/heads/${name}`);
-  }
-  return refs.length;
+/** The project whose rows are cleared, looked up by the slug the console manages. */
+async function projectId() {
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/project?slug=eq.${PROJECT_SLUG}&select=id`,
+    { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } },
+  );
+  if (!response.ok) throw new Error(`project lookup -> ${response.status}`);
+  const rows = await response.json();
+  if (rows.length === 0) throw new Error(`no project with slug ${PROJECT_SLUG}`);
+  return rows[0].id;
 }
 
 async function tagCommitSha(ref) {
@@ -101,41 +92,23 @@ async function resetMain() {
   return "reset";
 }
 
-async function clearTable(table, filter) {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
-    method: dryRun ? "GET" : "DELETE",
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
-      Prefer: "count=exact",
-      ...(dryRun ? { Range: "0-0" } : {}),
-    },
-  });
-  if (!response.ok && response.status !== 206) throw new Error(`${table} -> ${response.status}: ${(await response.text()).slice(0, 300)}`);
-  const range = response.headers.get("content-range") ?? "";
-  const count = Number(range.split("/")[1] ?? 0);
-  log(`${dryRun ? "would delete" : "deleted"} ${count} row(s) from ${table}`);
-  return count;
-}
-
 async function main() {
-  const summary = {};
-  if (GITHUB_TOKEN) {
-    summary.issuesClosed = await closeIssues();
-    summary.pullRequestsClosed = await closePullRequests();
-    summary.branchesDeleted = await deleteBranches();
-    summary.main = skipMain ? "skipped" : await resetMain();
-  } else {
-    log("GITHUB_TOKEN not set: skipping GitHub reset");
-  }
-  if (SUPABASE_URL && SUPABASE_KEY) {
-    summary.traceEvents = await clearTable("trace_event", "id=gt.0");
-    summary.escalations = await clearTable("escalation", "id=not.is.null");
-    summary.conversations = await clearTable("conversation", "id=not.is.null");
-  } else {
-    log("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set: skipping database reset");
-  }
-  console.log(JSON.stringify({ dryRun, repo: REPO, ...summary }, null, 2));
+  const summary = await resetDemo({
+    repo: GITHUB_TOKEN ? REPO : null,
+    githubToken: GITHUB_TOKEN,
+    supabaseUrl: SUPABASE_URL,
+    supabaseKey: SUPABASE_KEY,
+    projectId: SUPABASE_URL && SUPABASE_KEY ? await projectId() : "",
+    dryRun,
+  });
+
+  log(`${dryRun ? "would close" : "closed"} ${summary.issuesClosed} issue(s) and ${summary.pullRequestsClosed} pull request(s)`);
+  log(`${dryRun ? "would delete" : "deleted"} ${summary.branchesDeleted} branch(es)`);
+  log(`${dryRun ? "would delete" : "deleted"} ${summary.traceEvents} trace event(s), ${summary.escalations} escalation(s), ${summary.conversations} conversation(s)`);
+  for (const problem of summary.problems) console.warn(`warning: ${problem}`);
+
+  const mainState = GITHUB_TOKEN && !skipMain ? await resetMain() : "skipped";
+  console.log(JSON.stringify({ ...summary, repo: REPO, main: mainState }, null, 2));
 }
 
 main().catch((error) => {
