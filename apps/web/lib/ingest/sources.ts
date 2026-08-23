@@ -78,6 +78,7 @@ export async function fileSource(file: File): Promise<ParsedSource> {
       pages,
       sourceText: null,
       scanned: true,
+      original: file,
     };
   }
 
@@ -98,6 +99,7 @@ export async function fileSource(file: File): Promise<ParsedSource> {
     pages: [markdownPage(1, null, markdown)],
     sourceText: markdown,
     scanned: false,
+    original: file,
   };
 }
 
@@ -127,6 +129,7 @@ export async function urlSource(rawUrl: string): Promise<ParsedSource> {
     // Kept so the page can be shown again without going back to the network.
     sourceText: pages.map((page) => page.markdown).join("\n\n"),
     scanned: false,
+    original: null,
   };
 }
 
@@ -145,5 +148,6 @@ export function textSource(title: string, text: string): ParsedSource {
     pages: [markdownPage(1, null, body.startsWith("#") ? body : `# ${name}\n\n${body}`)],
     sourceText: body,
     scanned: false,
+    original: null,
   };
 }

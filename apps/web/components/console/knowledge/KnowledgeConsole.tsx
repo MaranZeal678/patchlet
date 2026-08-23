@@ -48,6 +48,31 @@ export function KnowledgeConsole({ initialDocuments, siteUrl }: Props) {
     [upsert],
   );
 
+  const replace = useCallback(
+    async (document: ConsoleDocument, file: File) => {
+      setBusyId(document.id);
+      setError("");
+      try {
+        const form = new FormData();
+        form.set("file", file);
+        const response = await fetch(`/api/documents/${document.id}/reindex`, {
+          method: "POST",
+          body: form,
+        });
+        const result = (await response.json()) as { document?: ConsoleDocument; error?: string };
+        if (!response.ok || !result.document) {
+          throw new Error(result.error ?? "That file could not be read.");
+        }
+        upsert(result.document);
+      } catch (failure) {
+        setError(failure instanceof Error ? failure.message : "That file could not be read.");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [upsert],
+  );
+
   const remove = useCallback(async (document: ConsoleDocument) => {
     setBusyId(document.id);
     setError("");
@@ -98,6 +123,7 @@ export function KnowledgeConsole({ initialDocuments, siteUrl }: Props) {
               busyId={busyId}
               onPreview={setPreviewing}
               onReindex={reindex}
+              onReplace={replace}
               onDelete={remove}
             />
           </div>

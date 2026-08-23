@@ -1865,7 +1865,8 @@ body {
 .drawer__panel {
   position: relative;
   display: flex;
-  width: min(620px, 100%);
+  /* Two panes side by side need room; a narrow window still gets the whole width. */
+  width: min(1180px, 100%);
   flex-direction: column;
   border-left: 1px solid var(--hairline-strong);
   background: var(--panel);
@@ -1874,6 +1875,7 @@ body {
 
 .drawer__head {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
@@ -1887,6 +1889,165 @@ body {
   font-size: 1.35rem;
   font-weight: 500;
   line-height: 1.15;
+  overflow-wrap: break-word;
+}
+
+.drawer__meta {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  overflow-wrap: break-word;
+}
+
+.drawer__actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The original on the left, what the reader made of it on the right. */
+.drawer__panes {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+@media (max-width: 900px) {
+  .drawer__panes {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(220px, 40%) minmax(0, 1fr);
+  }
+}
+
+.pane {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.pane + .pane {
+  border-left: 1px solid var(--hairline);
+}
+
+@media (max-width: 900px) {
+  .pane + .pane {
+    border-left: 0;
+    border-top: 1px solid var(--hairline);
+  }
+}
+
+.pane__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  /* Both heads sit on the same line whether or not one carries a page selector. */
+  min-height: 52px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--hairline);
+  background: rgba(235, 231, 220, 0.4);
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pane__ref {
+  min-width: 0;
+  color: var(--faint);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  overflow-wrap: anywhere;
+}
+
+.pane__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 20px 28px;
+}
+
+/* The document viewer fills its pane; padding would only shrink the page. */
+.pane:first-child .pane__body:has(.pane__frame) {
+  padding: 0;
+}
+
+.pane__frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  border: 0;
+  background: var(--surface);
+}
+
+.pane__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+}
+
+.pane__text {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.pane__empty {
+  display: grid;
+  gap: 6px;
+  padding: 24px 0;
+}
+
+.page-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.page-nav__step {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.page-nav__step:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.page-nav__step:disabled {
+  color: var(--faint);
+  opacity: 0.55;
+}
+
+.page-nav__select {
+  padding: 4px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .drawer__body {
@@ -1913,11 +2074,13 @@ body {
 }
 
 .page-block {
+  --tint: 0;
   margin: 0 0 6px;
   padding: 8px 10px;
   border-left: 2px solid var(--hairline);
   border-radius: 0 8px 8px 0;
-  background: rgba(235, 231, 220, 0.45);
+  /* The tint deepens as the reader's confidence falls, so a page reads as a heat map. */
+  background: color-mix(in srgb, #f6dcd6 calc(var(--tint) * 100%), rgba(235, 231, 220, 0.45));
   color: var(--ink);
   font-family: var(--font-mono);
   font-size: 0.78rem;
@@ -1926,10 +2089,9 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* Anything read below this confidence is tinted, so a bad scan is obvious at a glance. */
+/* Below the threshold the block also gets an edge, so a bad read is findable by scrolling. */
 .page-block.is-low {
-  border-left-color: #b4693f;
-  background: #f7e7d9;
+  border-left-color: #a8402e;
 }
 
 .page-block__score {

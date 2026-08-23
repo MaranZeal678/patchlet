@@ -7,13 +7,14 @@
 import { embed } from "../mistral";
 import { serviceClient } from "../supabase";
 import { chunkPages } from "./chunk";
+import { storeOriginal } from "./storage";
 import type { ChunkDraft, ConsoleDocument, IngestPage, ParsedSource } from "./types";
 
 /** The embeddings endpoint takes a batch; this is the size the rest of the pipeline is sized for. */
 const EMBED_BATCH = 32;
 
 export const DOCUMENT_COLUMNS =
-  "id, title, source_kind, source_ref, mime, status, page_count, mean_confidence, chunk_count, error, created_at";
+  "id, title, source_kind, source_ref, mime, status, page_count, mean_confidence, chunk_count, error, created_at, storage_path";
 
 export function toConsoleDocument(row: Record<string, unknown>): ConsoleDocument {
   return {
@@ -28,6 +29,7 @@ export function toConsoleDocument(row: Record<string, unknown>): ConsoleDocument
     chunkCount: Number(row.chunk_count ?? 0),
     error: row.error == null ? null : String(row.error),
     createdAt: String(row.created_at),
+    storagePath: row.storage_path == null ? null : String(row.storage_path),
   };
 }
 
@@ -61,6 +63,26 @@ function documentFields(source: ParsedSource): Record<string, unknown> {
     chunk_count: 0,
     error: null,
   };
+}
+
+/**
+ * Puts the uploaded file in the bucket and records where it went.
+ *
+ * A storage hiccup is not worth throwing away a scan that took minutes, so the source stays
+ * usable and the console simply says the original was not kept.
+ */
+async function keepOriginal(
+  projectId: string,
+  documentId: string,
+  source: ParsedSource,
+): Promise<void> {
+  if (!source.original) return;
+  try {
+    const storagePath = await storeOriginal(projectId, documentId, source.original);
+    await serviceClient().from("document").update({ storage_path: storagePath }).eq("id", documentId);
+  } catch (failure) {
+    console.warn(`Original of document ${documentId} was not stored:`, failure);
+  }
 }
 
 async function insertChunks(
@@ -131,7 +153,9 @@ export async function ingestSource(
     .single();
   if (error) throw new Error(`The source could not be stored: ${error.message}`);
 
-  return fill(projectId, String((data as { id: string }).id), source);
+  const documentId = String((data as { id: string }).id);
+  await keepOriginal(projectId, documentId, source);
+  return fill(projectId, documentId, source);
 }
 
 /** Replaces everything a document had with what its source says now. */
@@ -149,5 +173,8 @@ export async function reingestSource(
     .eq("id", documentId);
   if (error) throw new Error(`The source could not be stored: ${error.message}`);
 
+  // No new file means the source was read again from its address or its note, so whatever
+  // original the row already had stays exactly where it is.
+  await keepOriginal(projectId, documentId, source);
   return fill(projectId, documentId, source);
 }

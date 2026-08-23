@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { formatRelativeTime } from "@/lib/console/format";
 import type { ConsoleDocument } from "@/lib/ingest/types";
 import { SOURCE_MODE_LABEL } from "./AddSource";
@@ -24,10 +24,11 @@ type Props = {
   busyId: string | null;
   onPreview: (document: ConsoleDocument) => void;
   onReindex: (document: ConsoleDocument) => void;
+  onReplace: (document: ConsoleDocument, file: File) => void;
   onDelete: (document: ConsoleDocument) => void;
 };
 
-export function SourceList({ documents, busyId, onPreview, onReindex, onDelete }: Props) {
+export function SourceList({ documents, busyId, onPreview, onReindex, onReplace, onDelete }: Props) {
   const [confirming, setConfirming] = useState<string | null>(null);
 
   if (documents.length === 0) {
@@ -108,6 +109,13 @@ export function SourceList({ documents, busyId, onPreview, onReindex, onDelete }
                     {busy ? "Working..." : "Re-index"}
                   </button>
                 ) : null}
+                {document.sourceKind === "upload" ? (
+                  <ReplaceFile
+                    document={document}
+                    busy={busy}
+                    onReplace={onReplace}
+                  />
+                ) : null}
                 {confirming === document.id ? (
                   <>
                     <button
@@ -145,5 +153,48 @@ export function SourceList({ documents, busyId, onPreview, onReindex, onDelete }
         );
       })}
     </ul>
+  );
+}
+
+/**
+ * Attaching the file behind an upload.
+ *
+ * A source added before originals were kept has only the text that was read out of it. Handing
+ * the file back stores it and reads it again, without losing the row or anything pointing at it.
+ */
+function ReplaceFile({
+  document,
+  busy,
+  onReplace,
+}: {
+  document: ConsoleDocument;
+  busy: boolean;
+  onReplace: (document: ConsoleDocument, file: File) => void;
+}) {
+  const input = useRef<HTMLInputElement | null>(null);
+
+  return (
+    <>
+      <input
+        ref={input}
+        type="file"
+        className="sr-only"
+        accept=".pdf,.png,.jpg,.jpeg,.webp,.md,.txt,.html"
+        aria-label={`Replace the file behind ${document.title}`}
+        onChange={(event) => {
+          const chosen = event.target.files?.[0];
+          event.target.value = "";
+          if (chosen) onReplace(document, chosen);
+        }}
+      />
+      <button
+        type="button"
+        className="row-action"
+        onClick={() => input.current?.click()}
+        disabled={busy}
+      >
+        {document.storagePath ? "Replace file" : "Attach file"}
+      </button>
+    </>
   );
 }
