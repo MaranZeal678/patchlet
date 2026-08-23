@@ -8,6 +8,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+import config
 from models import Approval, Draft, FeatureRequestInput, IssueRef, Outcome, Plan, PrRef
 from steps import codegen, db, deploy, drafting, issue as issue_text, mcp_github, repo, slack, trace
 from steps.github import GitHubClient
@@ -37,30 +38,64 @@ def fail(req: FeatureRequestInput, step: str, error: Exception) -> None:
 def file_issue(req: FeatureRequestInput) -> IssueRef:
     _set_status(req, "filing")
     reporter = Reporter(req.project_id, req.escalation_id)
+
+    priority, reason = issue_text.choose_priority(req)
+    reporter.model(
+        f"Priority: {priority}",
+        issue_text.PRIORITY_MODEL,
+        "decide how urgent this request is",
+        input_summary=req.title,
+        output_summary=reason or priority,
+    )
+    labels = issue_text.labels_for(priority)
+
     criteria = issue_text.default_acceptance_criteria(req)
-    body = issue_text.build_issue_body(req, criteria)
+    body = issue_text.build_issue_body(req, criteria, priority=priority)
     trace.issue_draft(req.project_id, req.escalation_id, req.title, body)
 
     github = GitHubClient(req.repo_full_name)
+    created_labels = github.ensure_labels(labels)
+    if created_labels:
+        reporter.tool(
+            f"Created label(s) {', '.join(created_labels)}", "create_label", "rest",
+            f"POST /repos/{req.repo_full_name}/labels", ", ".join(created_labels),
+        )
+
     existing = github.find_open_issue_by_title(req.title)
     if existing:
-        comment = github.comment(int(existing["number"]), issue_text.build_duplicate_comment(req))
+        number = int(existing["number"])
+        # The same request arriving again is signal, so the issue counts it and quotes the new user.
+        current = github.get_issue(number).get("body") or ""
+        updated, count = issue_text.bump_request_count(current)
+        github.update_issue_body(number, updated)
+        comment = github.comment(number, issue_text.build_duplicate_comment(req, count))
         reporter.tool(
-            f"Issue #{existing['number']} already open, added a comment",
+            f"Issue #{number} already open, requested {count} times now",
             "add_issue_comment", "rest",
-            f"POST /repos/{req.repo_full_name}/issues/{existing['number']}/comments",
+            f"POST /repos/{req.repo_full_name}/issues/{number}/comments",
             comment.get("html_url", ""),
         )
-        ref = IssueRef(number=int(existing["number"]), url=existing["html_url"], title=existing["title"], body=body, deduplicated=True, transport="rest")
+        ref = IssueRef(
+            number=number, url=existing["html_url"], title=existing["title"], body=updated,
+            deduplicated=True, transport="rest", priority=priority, request_count=count,
+        )
     else:
-        result = mcp_github.file_issue_with_model(req.repo_full_name, req.title, body, [issue_text.LABEL], rest=github)
+        result = mcp_github.file_issue_with_model(req.repo_full_name, req.title, body, labels, rest=github)
         reporter.tool(
             f"Created issue #{result['number']} through {result['transport'].upper()}",
             "create_issue", result["transport"], result["args_summary"], result["result_summary"],
         )
-        ref = IssueRef(number=result["number"], url=result["url"], title=req.title, body=body, transport=result["transport"])
+        ref = IssueRef(
+            number=result["number"], url=result["url"], title=req.title, body=body,
+            transport=result["transport"], priority=priority,
+        )
     trace.issue(req.project_id, req.escalation_id, ref.url, ref.number, ref.deduplicated)
     db.update_escalation(req.escalation_id, issue_url=ref.url, issue_number=ref.number)
+    slack.notify(
+        f"Patchlet filed {ref.url} ({priority} priority) for \"{req.title}\"."
+        if not ref.deduplicated
+        else f"Patchlet saw \"{req.title}\" again and commented on {ref.url} (requested {ref.request_count} times)."
+    )
     return ref
 
 
@@ -139,7 +174,20 @@ def open_draft_pr(req: FeatureRequestInput, issue: IssueRef, plan: Plan, draft: 
     ref = PrRef(number=int(pr["number"]), url=pr["html_url"], branch=branch, head_sha=head_sha, node_id=pr.get("node_id", ""))
     trace.pr(req.project_id, req.escalation_id, ref.url, ref.number, branch)
     db.update_escalation(req.escalation_id, pr_url=ref.url, pr_number=ref.number, branch=branch)
-    slack.notify(f"Patchlet filed {issue.url} and drafted {ref.url} for \"{req.title}\". Approve it in the console.")
+
+    # The gates already passed on this branch, so say so on the pull request itself.
+    if draft.gates:
+        gate_comment = issue_text.build_gate_comment(
+            [(gate.name, gate.ok, gate.duration_s) for gate in draft.gates], config.activity_url()
+        )
+        github.comment(ref.number, gate_comment)
+        reporter.tool(
+            f"Reported the gate results on PR #{ref.number}", "add_issue_comment", "rest",
+            f"POST /repos/{req.repo_full_name}/issues/{ref.number}/comments",
+            ", ".join(f"{gate.name} {'passed' if gate.ok else 'failed'} in {gate.duration_s:.0f}s" for gate in draft.gates),
+        )
+
+    slack.notify(f"Patchlet drafted {ref.url} for \"{req.title}\" and it is waiting for approval in the console.")
     _set_status(req, "awaiting_approval")
     trace.pause(req.project_id, req.escalation_id, PAUSE_LABEL)
     return ref

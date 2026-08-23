@@ -1,4 +1,5 @@
 import { SseDecoder, toChatEvent } from './sse';
+import { visitorId } from './visitor';
 import type { ChatEvent, ChatRequest, EscalationView, PageContext } from '../types';
 
 export type ClientConfig = { apiBase: string; key: string };
@@ -21,7 +22,7 @@ export class ApiClient {
 
   /** Streams /api/chat, handing every well-formed ChatEvent to `onEvent`. */
   async ask({ question, page, conversationId, continueFrom, signal, onEvent }: AskOptions): Promise<void> {
-    const body: ChatRequest = { key: this.config.key, question, page };
+    const body: ChatRequest = { key: this.config.key, question, page, visitorId: visitorId() };
     if (conversationId) body.conversationId = conversationId;
     if (typeof continueFrom === 'number') body.continueFrom = continueFrom;
 
@@ -58,7 +59,7 @@ export class ApiClient {
     const response = await fetch(this.url('/api/escalate'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ key: this.config.key, conversationId, messageId }),
+      body: JSON.stringify({ key: this.config.key, conversationId, messageId, visitorId: visitorId() }),
     });
     if (!response.ok) throw new Error(`Could not report this (${response.status})`);
     return (await response.json()) as { escalationId: string; status: string };

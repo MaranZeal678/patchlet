@@ -2,7 +2,7 @@
 import { preflight, withCors } from "@/lib/cors";
 import { serviceClient } from "@/lib/supabase";
 import { runTurn } from "@/lib/agent/turn";
-import type { PageContext } from "@patchlet/shared";
+import type { ChatRequest } from "@patchlet/shared";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -11,24 +11,19 @@ export function OPTIONS(): Response {
   return preflight();
 }
 
-type Body = {
-  key?: string;
-  question?: string;
-  page?: PageContext;
-  conversationId?: string;
-  continueFrom?: number;
-};
+type Body = Partial<ChatRequest>;
 
 export async function POST(request: Request): Promise<Response> {
   const body = (await request.json().catch(() => ({}))) as Body;
-  if (!body.key || !body.question || !body.page) {
+  const { key, question, page } = body;
+  if (!key || !question || !page) {
     return withCors(Response.json({ error: "key, question and page are required" }, { status: 400 }));
   }
 
   const { data: project } = await serviceClient()
     .from("project")
     .select("id, repo_full_name, repo_default_branch")
-    .eq("embed_key", body.key)
+    .eq("embed_key", key)
     .maybeSingle();
   if (!project) {
     return withCors(Response.json({ error: "unknown key" }, { status: 403 }));
@@ -45,10 +40,11 @@ export async function POST(request: Request): Promise<Response> {
           projectId: project.id as string,
           repoFullName: (project.repo_full_name as string) ?? null,
           defaultBranch: (project.repo_default_branch as string) ?? "main",
-          question: body.question as string,
-          page: body.page as PageContext,
+          question,
+          page,
           conversationId: body.conversationId,
           continueFrom: body.continueFrom,
+          visitorId: typeof body.visitorId === "string" ? body.visitorId.slice(0, 64) : undefined,
         })) {
           send(event);
         }

@@ -28,6 +28,8 @@ class IssueRef(BaseModel):
     body: str = ""
     deduplicated: bool = False
     transport: str = "mcp"
+    priority: str = "medium"
+    request_count: int = 1
 
 
 class PlannedFile(BaseModel):
@@ -48,6 +50,14 @@ class FileDiff(BaseModel):
     patch: str
 
 
+class GateOutcome(BaseModel):
+    """One gate run, reported back on the pull request."""
+
+    name: str
+    ok: bool
+    duration_s: float = 0.0
+
+
 class Draft(BaseModel):
     files: dict[str, str]
     diffs: list[FileDiff] = Field(default_factory=list)
@@ -55,6 +65,7 @@ class Draft(BaseModel):
     base_sha: str = ""
     candidates_tried: int = 1
     repairs: int = 0
+    gates: list[GateOutcome] = Field(default_factory=list)
 
 
 class PrRef(BaseModel):

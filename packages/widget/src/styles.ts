@@ -199,6 +199,16 @@ const SHEET = `
 .pl-msg--agent { align-self: flex-start; background: var(--pl-bubble); border: 1px solid var(--pl-hairline); }
 .pl-msg p { margin: 0; white-space: pre-wrap; }
 
+/* One quiet line when the agent already knows this visitor. */
+.pl-recall {
+  align-self: flex-start;
+  margin: -4px 0 0;
+  padding: 0 2px;
+  color: var(--pl-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
 /* Probe strip */
 .pl-probes { display: flex; gap: 6px; align-self: stretch; }
 .pl-pill {

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from models import Draft, FeatureRequestInput, Plan
+from models import Draft, FeatureRequestInput, GateOutcome, Plan
 from steps import applier, codegen, repo
 from steps.reporter import Reporter
 
@@ -115,6 +115,8 @@ def draft_with_gates(
                 base_sha=plan.base_sha or repo.head_sha(root),
                 candidates_tried=candidate,
                 repairs=total_repairs,
+                # The gates of the run that passed, reported on the pull request.
+                gates=[GateOutcome(name=r.name, ok=r.ok, duration_s=r.duration_s) for r in results],
             )
 
         last_error = f"{failure.name} failed:\n{failure.output[-1500:]}"

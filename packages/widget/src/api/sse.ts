@@ -66,7 +66,10 @@ export function toChatEvent(payload: string): ChatEvent | null {
     case 'understanding': {
       if (typeof parsed.feature !== 'string') return null;
       const intent = parsed.intent === 'howto' || parsed.intent === 'feature' ? parsed.intent : 'other';
-      return { type: 'understanding', feature: parsed.feature, intent };
+      const memory = Array.isArray(parsed.memory)
+        ? parsed.memory.filter((fact): fact is string => typeof fact === 'string')
+        : [];
+      return { type: 'understanding', feature: parsed.feature, intent, memory };
     }
 
     case 'probe': {

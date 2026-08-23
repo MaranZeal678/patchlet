@@ -362,7 +362,7 @@ function applyEvent(turn: Turn, event: ChatEvent, conversationRef: { current: st
       conversationRef.current = event.conversationId;
       return { ...turn, messageId: event.messageId };
     case 'understanding':
-      return { ...turn, feature: event.feature };
+      return { ...turn, feature: event.feature, memory: event.memory };
     case 'probe':
       return {
         ...turn,

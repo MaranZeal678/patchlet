@@ -3,6 +3,7 @@ import { preflight, withCors } from "@/lib/cors";
 import { serviceClient } from "@/lib/supabase";
 import { emitTrace } from "@/lib/trace";
 import { escalationEngine, mistralApiKey, workflowDeploymentName, workflowName } from "@/lib/env";
+import type { EscalateRequest } from "@patchlet/shared";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -12,11 +13,7 @@ export function OPTIONS(): Response {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const body = (await request.json().catch(() => ({}))) as {
-    key?: string;
-    conversationId?: string;
-    messageId?: string;
-  };
+  const body = (await request.json().catch(() => ({}))) as Partial<EscalateRequest>;
   if (!body.key || !body.messageId) {
     return withCors(Response.json({ error: "key and messageId are required" }, { status: 400 }));
   }
@@ -37,6 +34,15 @@ export async function POST(request: Request): Promise<Response> {
   const featureRequest = message?.feature_request as Record<string, unknown> | null;
   if (!featureRequest) {
     return withCors(Response.json({ error: "that message has no feature request" }, { status: 400 }));
+  }
+
+  // The report can come from a conversation that started before the widget had an id.
+  if (body.conversationId && typeof body.visitorId === "string" && body.visitorId) {
+    await db
+      .from("conversation")
+      .update({ visitor_id: body.visitorId.slice(0, 64) })
+      .eq("id", body.conversationId)
+      .is("visitor_id", null);
   }
 
   const engine = escalationEngine();

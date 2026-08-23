@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import time
 from typing import Any
+from urllib.parse import quote
 
 import requests
 
@@ -13,6 +14,20 @@ import config
 API = "https://api.github.com"
 GRAPHQL = "https://api.github.com/graphql"
 TIMEOUT = 30
+
+DEFAULT_LABEL_COLOUR = "ededed"
+LABEL_COLOURS = {
+    "patchlet": "174633",
+    "priority:high": "b42318",
+    "priority:medium": "b54708",
+    "priority:low": "667085",
+}
+LABEL_DESCRIPTIONS = {
+    "patchlet": "Filed by Patchlet from a support conversation",
+    "priority:high": "Blocks a common flow",
+    "priority:medium": "A real gap with a workaround",
+    "priority:low": "A nice improvement",
+}
 
 
 class GitHubError(RuntimeError):
@@ -87,6 +102,34 @@ class GitHubClient:
 
     def comment(self, issue_number: int, body: str) -> dict[str, Any]:
         return self._request("POST", self._repo_path(f"/issues/{issue_number}/comments"), json={"body": body})
+
+    def get_issue(self, number: int) -> dict[str, Any]:
+        return self._request("GET", self._repo_path(f"/issues/{number}"))
+
+    def update_issue_body(self, number: int, body: str) -> dict[str, Any]:
+        return self._request("PATCH", self._repo_path(f"/issues/{number}"), json={"body": body})
+
+    # ---- labels ---------------------------------------------------------
+
+    def ensure_labels(self, names: list[str]) -> list[str]:
+        """Create any label the repository does not have yet. Returns the ones this call created."""
+        created: list[str] = []
+        for name in names:
+            try:
+                self._request("GET", self._repo_path(f"/labels/{quote(name, safe='')}"))
+                continue
+            except GitHubError as error:
+                if "404" not in str(error):
+                    raise
+            payload = {"name": name, "color": LABEL_COLOURS.get(name, DEFAULT_LABEL_COLOUR), "description": LABEL_DESCRIPTIONS.get(name, "")}
+            try:
+                self._request("POST", self._repo_path("/labels"), json=payload)
+                created.append(name)
+            except GitHubError as error:
+                # A parallel run may have created it between the check and the write.
+                if "422" not in str(error):
+                    raise
+        return created
 
     # ---- git data -------------------------------------------------------
 
