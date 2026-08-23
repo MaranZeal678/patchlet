@@ -1,0 +1,146 @@
+"use client";
+
+import { useCallback, useMemo, useState } from "react";
+import type { ConsoleDocument } from "@/lib/ingest/types";
+import { AddSource } from "./AddSource";
+import { PreviewDrawer } from "./PreviewDrawer";
+import { SourceList } from "./SourceList";
+import { TestQuestion } from "./TestQuestion";
+
+type Props = {
+  initialDocuments: ConsoleDocument[];
+  siteUrl: string | null;
+};
+
+/** Adding sources, seeing what came out of them, and proving what the agent would retrieve. */
+export function KnowledgeConsole({ initialDocuments, siteUrl }: Props) {
+  const [documents, setDocuments] = useState(initialDocuments);
+  const [previewing, setPreviewing] = useState<ConsoleDocument | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  const stats = useMemo(() => summarise(documents), [documents]);
+
+  const upsert = useCallback((document: ConsoleDocument) => {
+    setDocuments((current) => {
+      const rest = current.filter((row) => row.id !== document.id);
+      return [document, ...rest].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    });
+  }, []);
+
+  const reindex = useCallback(
+    async (document: ConsoleDocument) => {
+      setBusyId(document.id);
+      setError("");
+      try {
+        const response = await fetch(`/api/documents/${document.id}/reindex`, { method: "POST" });
+        const result = (await response.json()) as { document?: ConsoleDocument; error?: string };
+        if (!response.ok || !result.document) {
+          throw new Error(result.error ?? "That source could not be read again.");
+        }
+        upsert(result.document);
+      } catch (failure) {
+        setError(failure instanceof Error ? failure.message : "That source could not be read again.");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [upsert],
+  );
+
+  const remove = useCallback(async (document: ConsoleDocument) => {
+    setBusyId(document.id);
+    setError("");
+    try {
+      const response = await fetch(`/api/documents/${document.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const result = (await response.json()) as { error?: string };
+        throw new Error(result.error ?? "That source could not be removed.");
+      }
+      setDocuments((current) => current.filter((row) => row.id !== document.id));
+      setPreviewing((current) => (current?.id === document.id ? null : current));
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "That source could not be removed.");
+    } finally {
+      setBusyId(null);
+    }
+  }, []);
+
+  return (
+    <>
+      <div className="stat-grid mb-6">
+        <Stat value={String(stats.sources)} label="Sources" />
+        <Stat value={String(stats.chunks)} label="Chunks" />
+        <Stat value={String(stats.scannedPages)} label="Scanned pages" />
+        <Stat
+          value={stats.meanConfidence === null ? "-" : stats.meanConfidence.toFixed(2)}
+          label="Mean confidence"
+        />
+      </div>
+
+      {error ? (
+        <div className="notice is-error mb-6" role="alert">
+          {error}
+        </div>
+      ) : null}
+
+      <div className="kb-grid mb-6">
+        <AddSource siteUrl={siteUrl} onAdded={upsert} />
+
+        <section className="panel">
+          <div className="panel__head">
+            <h2>Your sources</h2>
+            {documents.length > 0 ? <span className="count-pill">{documents.length}</span> : null}
+          </div>
+          <div className="sources-scroll">
+            <SourceList
+              documents={documents}
+              busyId={busyId}
+              onPreview={setPreviewing}
+              onReindex={reindex}
+              onDelete={remove}
+            />
+          </div>
+        </section>
+      </div>
+
+      <TestQuestion />
+
+      {previewing ? (
+        <PreviewDrawer key={previewing.id} document={previewing} onClose={() => setPreviewing(null)} />
+      ) : null}
+    </>
+  );
+}
+
+function summarise(documents: ConsoleDocument[]): {
+  sources: number;
+  chunks: number;
+  scannedPages: number;
+  meanConfidence: number | null;
+} {
+  const scanned = documents.filter((row) => row.meanConfidence !== null);
+  const scannedPages = scanned.reduce((total, row) => total + (row.pageCount ?? 0), 0);
+  return {
+    sources: documents.length,
+    chunks: documents.reduce((total, row) => total + row.chunkCount, 0),
+    scannedPages,
+    // Weighted by pages, so one clean page cannot hide a hundred bad ones.
+    meanConfidence:
+      scannedPages === 0
+        ? null
+        : scanned.reduce(
+            (total, row) => total + (row.meanConfidence ?? 0) * (row.pageCount ?? 0),
+            0,
+          ) / scannedPages,
+  };
+}
+
+function Stat({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="stat">
+      <span className="stat__num">{value}</span>
+      <span className="stat__label">{label}</span>
+    </div>
+  );
+}

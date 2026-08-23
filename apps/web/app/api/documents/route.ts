@@ -1,28 +1,18 @@
-/** Everything the agent can answer from, newest first. */
+/** Everything the agent can answer from: the list, and the way new sources arrive. */
 import { corsJson, preflight } from "@/lib/cors";
 import { loadProject } from "@/lib/console/project";
+import { sourceFromRequest } from "@/lib/ingest/request";
+import { DOCUMENT_COLUMNS, ingestSource, toConsoleDocument } from "@/lib/ingest/run";
 import { serviceClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+/** Reading a scanned handbook or crawling a documentation site is minutes of work, not seconds. */
+export const maxDuration = 300;
 
 export function OPTIONS(): Response {
   return preflight();
 }
-
-export type ConsoleDocument = {
-  id: string;
-  title: string;
-  sourceKind: string;
-  sourceRef: string | null;
-  mime: string | null;
-  status: string;
-  pageCount: number | null;
-  meanConfidence: number | null;
-  chunkCount: number;
-  error: string | null;
-  createdAt: string;
-};
 
 export async function GET(): Promise<Response> {
   const project = await loadProject();
@@ -30,27 +20,26 @@ export async function GET(): Promise<Response> {
 
   const { data, error } = await serviceClient()
     .from("document")
-    .select(
-      "id, title, source_kind, source_ref, mime, status, page_count, mean_confidence, chunk_count, error, created_at",
-    )
+    .select(DOCUMENT_COLUMNS)
     .eq("project_id", project.id)
     .order("created_at", { ascending: false });
 
   if (error) return corsJson({ error: error.message }, { status: 500 });
+  return corsJson({ documents: (data ?? []).map(toConsoleDocument) });
+}
 
-  const documents: ConsoleDocument[] = (data ?? []).map((row) => ({
-    id: String(row.id),
-    title: String(row.title),
-    sourceKind: String(row.source_kind),
-    sourceRef: row.source_ref === null ? null : String(row.source_ref),
-    mime: row.mime === null ? null : String(row.mime),
-    status: String(row.status),
-    pageCount: row.page_count === null ? null : Number(row.page_count),
-    meanConfidence: row.mean_confidence === null ? null : Number(row.mean_confidence),
-    chunkCount: Number(row.chunk_count ?? 0),
-    error: row.error === null ? null : String(row.error),
-    createdAt: String(row.created_at),
-  }));
+export async function POST(request: Request): Promise<Response> {
+  const project = await loadProject();
+  if (!project) {
+    return corsJson({ error: "No project has been seeded yet." }, { status: 409 });
+  }
 
-  return corsJson({ documents });
+  try {
+    const source = await sourceFromRequest(request);
+    const document = await ingestSource(project.id, source);
+    return corsJson({ document });
+  } catch (failure) {
+    const message = failure instanceof Error ? failure.message : "That source could not be added.";
+    return corsJson({ error: message }, { status: 400 });
+  }
 }
