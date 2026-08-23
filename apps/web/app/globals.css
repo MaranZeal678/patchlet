@@ -788,6 +788,38 @@ body {
 
 /* --- Live trace ------------------------------------------------------------------- */
 
+/*
+ * List beside detail.
+ *
+ * Wide: the page itself does not scroll. The heading and the filters keep their place and the
+ * two columns divide the rest of the viewport, each scrolling inside itself. `:has` is what
+ * opts a page in; without it the page falls back to scrolling normally, which is the old
+ * behaviour rather than a broken one.
+ *
+ * Narrow: the columns stack. The list becomes a short strip and the detail runs at its natural
+ * height under it, so there is one scroll on the page instead of three nested ones.
+ */
+.console-page:has(> .console-fill) {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--app-bar-h));
+  padding-bottom: 32px;
+  overflow: hidden;
+}
+
+.console-fill {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.console-fill > .page-head,
+.console-fill > .filter-row,
+.console-fill > .notice {
+  flex: none;
+}
+
 .activity-grid {
   display: grid;
   gap: 20px;
@@ -795,22 +827,30 @@ body {
   grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.4fr);
 }
 
-@media (max-width: 960px) {
-  .activity-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.console-fill .activity-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
 }
 
-.activity-list {
-  max-height: calc(100vh - 260px);
+.list-column {
+  min-height: 0;
+  max-height: calc(100vh - var(--app-bar-h) - 40px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding-right: 4px;
+}
+
+.console-fill .list-column {
+  max-height: none;
+  height: 100%;
 }
 
 .trace-panel {
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 200px);
+  min-height: 0;
+  height: 100%;
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
   background: var(--panel);
@@ -818,8 +858,41 @@ body {
   overflow: hidden;
 }
 
+@media (max-width: 960px) {
+  .console-page:has(> .console-fill) {
+    display: block;
+    height: auto;
+    padding-bottom: 64px;
+    overflow: visible;
+  }
+
+  .console-fill {
+    display: block;
+  }
+
+  .activity-grid,
+  .console-fill .activity-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Tall enough to show a whole card and the edge of the next, short enough that the detail
+     underneath is on screen without hunting for it. */
+  .list-column,
+  .console-fill .list-column {
+    height: auto;
+    max-height: 40vh;
+  }
+
+  .trace-panel {
+    height: auto;
+    max-height: none;
+  }
+}
+
 .trace-panel__head {
   display: flex;
+  flex: none;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
@@ -877,9 +950,19 @@ body {
 
 .trace-body {
   display: grid;
+  flex: 1 1 auto;
+  min-height: 0;
   gap: 12px;
+  align-content: start;
   padding: 18px 22px 24px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 960px) {
+  .trace-body {
+    overflow-y: visible;
+  }
 }
 
 .trace-row {
@@ -1151,12 +1234,6 @@ body {
 }
 
 /* --- Conversations ---------------------------------------------------------------- */
-
-.convo-list {
-  max-height: calc(100vh - 300px);
-  overflow-y: auto;
-  padding-right: 4px;
-}
 
 .detail-summary {
   margin: 0;

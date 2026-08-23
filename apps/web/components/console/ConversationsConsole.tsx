@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { outcomeLabel, outcomeTone, type ConversationOutcome } from "@/lib/agent/outcome";
 import { formatDateTime, formatDuration } from "@/lib/console/format";
+import { keepInView } from "@/lib/console/keepInView";
 import { ConversationDetailPanel } from "./ConversationDetail";
 
 import type {
@@ -69,6 +70,14 @@ export function ConversationsConsole({
 
   // Nothing chosen yet means the newest conversation in the current filter.
   const selectedId = chosenId ?? conversations[0]?.id ?? null;
+
+  // On the stacked layout the list is a short strip, so the chosen card can sit outside it after
+  // a filter change. Only the strip is scrolled; the page stays where the reader left it.
+  const listBox = useRef<HTMLDivElement | null>(null);
+  const selectedCard = useRef<HTMLLIElement | null>(null);
+  useEffect(() => {
+    keepInView(listBox.current, selectedCard.current);
+  }, [selectedId, conversations]);
 
   const load = useCallback(async (id: string) => {
     setLoadingDetail(true);
@@ -144,10 +153,13 @@ export function ConversationsConsole({
         </div>
       ) : (
         <div className="activity-grid">
-          <div className="convo-list">
+          <div className="list-column" ref={listBox}>
             <ul className="record-list">
               {conversations.map((conversation) => (
-                <li key={conversation.id}>
+                <li
+                  key={conversation.id}
+                  ref={selectedId === conversation.id ? selectedCard : undefined}
+                >
                   <button
                     type="button"
                     className={`record-card${selectedId === conversation.id ? " is-selected" : ""}`}

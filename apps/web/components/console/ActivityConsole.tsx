@@ -123,7 +123,7 @@ export function ActivityConsole({
       ) : null}
 
       <div className="activity-grid">
-        <div className="activity-list">
+        <div className="list-column">
           {nothingToShow ? (
             <div className="empty-state">
               <p className="empty-state__title">Nothing has happened yet</p>

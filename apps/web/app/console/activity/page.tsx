@@ -17,13 +17,13 @@ export default async function ActivityPage() {
     : [[], []];
 
   return (
-    <>
+    <div className="console-fill">
       <PageHeader
         eyebrow="Activity"
         title="The live trace"
         description="Every check, decision and artefact, streamed from the agent and the worker as it happens."
       />
       <ActivityConsole initialEscalations={escalations} initialConversations={conversations} />
-    </>
+    </div>
   );
 }
