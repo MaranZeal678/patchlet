@@ -15,13 +15,16 @@ the service role, which bypasses RLS. Nothing else is granted access.
 ```sql
 create table project (
   id uuid primary key default gen_random_uuid(),
-  slug text not null unique,               -- 'not-mistral'
+  owner_id uuid unique,                    -- the Supabase auth user that owns this workspace
+  slug text not null unique,               -- from the company name, suffixed when taken
   name text not null,
+  company text,                            -- the company name from the sign-up form
   embed_key text not null unique,          -- public widget key, 'pk_' || 24 hex chars
-  site_url text,                           -- 'https://not-mistral.vercel.app'
-  repo_full_name text,                     -- 'AadiDahake/not-mistral'
+  site_url text,                           -- where the widget is installed
+  repo_full_name text,                     -- 'owner/name', null until one is bound
   repo_default_branch text default 'main',
   settings jsonb not null default '{}',    -- {docsThreshold:0.70, interfaceThreshold:0.5, voice:"en_paul_neutral"}
+  onboarded_at timestamptz,                -- when the four onboarding steps first all read done
   created_at timestamptz not null default now()
 );
 
@@ -147,9 +150,10 @@ language sql stable as $$
 $$;
 ```
 
-**Seed** (`scripts/seed.mjs`, idempotent): one project, slug `not-mistral`, name "Not Mistral",
+**Seed** (`scripts/seed.mjs`, idempotent): the demo project, slug `not-mistral`, name "Not Mistral",
 a generated `embed_key`, `site_url` `https://not-mistral.vercel.app`, `repo_full_name`
-`AadiDahake/not-mistral`.
+`AadiDahake/not-mistral`, handed to the account named by `PATCHLET_DEMO_OWNER_EMAIL` through the
+auth admin API. Every other project is created by sign-up.
 
 ## 2. Shared types
 
@@ -211,7 +215,7 @@ export type ChatEvent =
       type: "answer";
       text: string;
       steps: Step[] | null;
-      escalation: { offered: true; request: FeatureRequest } | { offered: false };
+      escalation: EscalationOffer;   // { offered: true, request } | { offered: false, reason? }
     }
   | { type: "error"; message: string };
 
@@ -245,20 +249,23 @@ Also exported:
 ## 3. HTTP API
 
 Routes live in `apps/web/app/api`. Widget-facing routes take the public embed key as `key`, send
-`Access-Control-Allow-Origin: *`, and answer `OPTIONS` preflight. Every `/api/*` route stays
-public, because the widget and the worker call them without a browser session; what gates the
-console is `apps/web/proxy.ts`, which sends anonymous visits to `/console/**` to `/signin`. There
-is a single seeded project, so every signed-in user sees the same one.
+`Access-Control-Allow-Origin: *`, and answer `OPTIONS` preflight; they run on a customer's site and
+have no session.
+
+Console routes resolve the caller through `apps/web/lib/console/current.ts`, which reads the session
+cookie, returns the project that account owns (creating one if it has none), and answers `401
+{error}` when there is no session. Every query in a console route is scoped to that project id, so
+one account can never read another's sources, conversations, escalations or trace.
 
 | Route | Body / query | Returns |
 |---|---|---|
 | `POST /api/chat` | `{key, conversationId?, visitorId?, question, page: PageContext, continueFrom?}` | SSE of `ChatEvent`; each `data:` line is one JSON event, `event:` is its type |
-| `POST /api/escalate` | `{key, conversationId, messageId, visitorId?}` | `{escalationId, status}` |
-| `GET /api/escalations/:id` | `?key=` optional | `{id, status, issueUrl, prUrl, deploymentUrl, request, approval, createdAt}` |
+| `POST /api/escalate` | `{key, conversationId, messageId, visitorId?}` | `{escalationId, status}`, or 409 `{error, reason: "no_repository"}` when the project has no repository bound |
+| `GET /api/escalations/:id` | `?key=` required, must be the escalation's project | `{id, status, issueUrl, prUrl, deploymentUrl, request, approval, createdAt}` |
 | `POST /api/transcribe` | multipart `key`, `file` (audio/webm or mp3) | `{text}` |
 | `POST /api/speak` | `{key, text}` | `audio/mpeg` bytes, streamed as the TTS deltas arrive |
 | `GET /api/project` | - | `{project, embedSnippet, widgetUrl}` |
-| `PATCH /api/project` | `{repoFullName?, siteUrl?, settings?}` | validates the repository through GitHub, returns the project |
+| `PATCH /api/project` | `{repoFullName?, siteUrl?, settings?}` | validates the repository through GitHub, returns the project; `repoFullName: null` unbinds it |
 | `GET /api/documents` | - | `{documents: Document[]}` |
 | `POST /api/documents` | multipart `file` (pdf, png, jpg, md, txt, html), or JSON `{url}`, or JSON `{title, text}` | ingests synchronously, returns the document row |
 | `DELETE /api/documents/:id` | - | `{ok: true}` |
