@@ -93,6 +93,19 @@ export function ActivityConsole({
   const nothingToShow =
     (showEscalations ? escalations.length : 0) + (showConversations ? conversations.length : 0) === 0;
 
+  // With nothing recorded the filters count nothing three ways. One empty state says more.
+  if (escalations.length === 0 && conversations.length === 0) {
+    return (
+      <div className="empty-state">
+        <p className="empty-state__title">Nothing has happened yet</p>
+        <p className="empty-state__text">
+          Install the widget on your site. The first question shows up here, with every check,
+          decision and artefact behind it.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="filter-row">
@@ -126,11 +139,8 @@ export function ActivityConsole({
         <div className="list-column">
           {nothingToShow ? (
             <div className="empty-state">
-              <p className="empty-state__title">Nothing has happened yet</p>
-              <p className="empty-state__text">
-                Ask the widget a question on your site. The conversation, every check and every
-                artefact appear here as they happen.
-              </p>
+              <p className="empty-state__title">Nothing under this filter</p>
+              <p className="empty-state__text">Try another one.</p>
             </div>
           ) : (
             <ul className="record-list">

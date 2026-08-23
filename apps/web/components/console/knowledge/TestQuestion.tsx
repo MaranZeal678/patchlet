@@ -3,8 +3,13 @@
 import { useState } from "react";
 import type { SearchMatch } from "@/lib/ingest/types";
 
-/** The passages the agent would be handed for a question, in the order it would see them. */
-export function TestQuestion() {
+/**
+ * The passages the agent would be handed for a question, in the order it would see them.
+ *
+ * With nothing indexed there is nothing to rank, so the form is closed rather than left open
+ * to return an empty result that looks like a failure.
+ */
+export function TestQuestion({ hasSources }: { hasSources: boolean }) {
   const [question, setQuestion] = useState("How do I change my username?");
   const [matches, setMatches] = useState<SearchMatch[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -34,8 +39,9 @@ export function TestQuestion() {
         {matches ? <span className="count-pill">top {matches.length}</span> : null}
       </div>
       <p className="field-hint mt-0 mb-4">
-        This runs the same search the agent runs before it answers. What comes back here is exactly
-        what would ground the reply.
+        {hasSources
+          ? "This runs the same search the agent runs before it answers. What comes back here is exactly what would ground the reply."
+          : "Add a source first. This runs the same search the agent runs before it answers, so it needs something to read."}
       </p>
 
       <form className="flex flex-wrap items-center gap-3" onSubmit={ask}>
@@ -47,9 +53,14 @@ export function TestQuestion() {
           className="field-input flex-1 min-w-[240px]"
           value={question}
           placeholder="Ask what a customer would ask"
+          disabled={!hasSources}
           onChange={(event) => setQuestion(event.target.value)}
         />
-        <button type="submit" className="secondary-action" disabled={busy || question.trim() === ""}>
+        <button
+          type="submit"
+          className="secondary-action"
+          disabled={!hasSources || busy || question.trim() === ""}
+        >
           {busy ? "Searching..." : "Search the knowledge base"}
         </button>
       </form>

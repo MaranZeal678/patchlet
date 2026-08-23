@@ -114,6 +114,20 @@ export function ConversationsConsole({
     };
   }, [selectedId, load]);
 
+  // Before the first question the pills would count nothing four ways, so the page says the
+  // one thing that is true instead.
+  if (counts.all === 0) {
+    return (
+      <div className="empty-state">
+        <p className="empty-state__title">No conversations yet</p>
+        <p className="empty-state__text">
+          Install the widget on your site. Every question the agent handles, how it ended and the
+          guidance it gave appear here.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="filter-row" role="group" aria-label="Filter by outcome">
@@ -142,14 +156,8 @@ export function ConversationsConsole({
 
       {conversations.length === 0 ? (
         <div className="empty-state">
-          <p className="empty-state__title">
-            {counts.all === 0 ? "No conversations yet" : "No conversations match this filter"}
-          </p>
-          <p className="empty-state__text">
-            {counts.all === 0
-              ? "Ask the widget a question on your site. Every conversation, its outcome and the guidance it gave appear here."
-              : "Try another outcome."}
-          </p>
+          <p className="empty-state__title">No conversations match this filter</p>
+          <p className="empty-state__text">Try another outcome.</p>
         </div>
       ) : (
         <div className="activity-grid">

@@ -46,15 +46,6 @@ export function MessageList({
   );
 }
 
-/** Facts are stored in the third person; the visitor reading them is the person they describe. */
-function addressVisitor(fact: string): string {
-  return fact
-    .replace(/^The visitor's\b/, 'Your')
-    .replace(/^The visitor\b/, 'You')
-    .replace(/^You is\b/, 'You are')
-    .replace(/^You has\b/, 'You have');
-}
-
 function TurnView({
   turn,
   guiding,
@@ -75,10 +66,10 @@ function TurnView({
         <p>{turn.question}</p>
       </div>
 
+      {/* Say that the agent remembered, never what it remembered: reading a stored fact back at
+          the visitor on someone else's site is unsettling, and it can be wrong. */}
       {turn.memory && turn.memory.length > 0 && (
-        <p class="pl-recall" title={turn.memory.join(' ')}>
-          Welcome back. {addressVisitor(turn.memory[turn.memory.length - 1] ?? '')}
-        </p>
+        <p class="pl-recall">Welcome back. Answering with what you told us before.</p>
       )}
 
 
