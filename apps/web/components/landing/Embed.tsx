@@ -1,10 +1,16 @@
-import { CopyButton } from "@/components/CopyButton";
+import Link from "next/link";
 
+/**
+ * What installing Patchlet looks like.
+ *
+ * The snippet here is an illustration with a placeholder key: a visitor has no project yet, so
+ * there is nothing real to copy. The real one, with the real key, is on the console's overview.
+ */
 export function Embed({ snippet }: { snippet: string }) {
   return (
     <section id="embed" className="border-t border-line/60 py-28 lg:py-36">
       <div className="mx-auto max-w-5xl px-6 lg:px-10">
-        <div className="relative overflow-hidden rounded-[2.25rem] bg-accent-deep px-8 py-20 text-panel lg:px-16 lg:py-24">
+        <div className="relative overflow-hidden rounded-[2.25rem] bg-accent-deep px-6 py-20 text-panel sm:px-8 lg:px-16 lg:py-24">
           <Decoration />
           <div className="relative">
             <span className="inline-flex items-center gap-2 rounded-full border border-panel/20 px-3 py-1 text-[11px] tracking-[0.22em] text-panel/80 uppercase">
@@ -24,15 +30,25 @@ export function Embed({ snippet }: { snippet: string }) {
                 <span className="text-[11px] font-semibold tracking-[0.18em] text-panel/60 uppercase">
                   index.html
                 </span>
-                <CopyButton
-                  value={snippet}
-                  label="Copy snippet"
-                  className="inline-flex min-h-8 items-center rounded-full border border-panel/25 bg-panel/10 px-3 text-[13px] font-semibold text-panel transition-colors hover:border-panel/50 hover:bg-panel/20"
-                />
+                <span className="text-[11px] tracking-[0.18em] text-panel/45 uppercase">
+                  Example
+                </span>
               </div>
-              <pre className="mono overflow-x-auto px-4 py-4 text-left text-panel/90">
+              <pre className="mono px-4 py-4 text-left leading-relaxed break-words whitespace-pre-wrap text-panel/90">
                 <code>{snippet}</code>
               </pre>
+            </div>
+
+            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
+              <Link
+                href="/signin?mode=signup"
+                className="inline-flex items-center rounded-full bg-panel px-6 py-3 text-sm font-semibold text-accent-deep transition hover:bg-panel/85"
+              >
+                Get started
+              </Link>
+              <p className="text-sm text-panel/70">
+                Your key appears in the console after you create an account.
+              </p>
             </div>
           </div>
         </div>

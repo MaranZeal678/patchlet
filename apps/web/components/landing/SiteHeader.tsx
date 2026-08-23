@@ -8,11 +8,15 @@ const LINKS = [
   { href: "#embed", label: "Embed" },
 ] as const;
 
+/**
+ * The marketing header. Every destination here is one a signed-out visitor can actually reach:
+ * the console links used to sit in this bar and bounced a stranger straight to sign-in.
+ */
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-50 border-b border-line/60 bg-paper/75 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6 lg:px-10">
-        <Link href="#top" className="flex items-center gap-2.5">
+    <header className="sticky top-0 z-50 border-b border-line/60 bg-paper/90 backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-6 lg:px-10">
+        <Link href="#top" className="flex flex-none items-center gap-2.5">
           <Mark />
           <span className="font-display text-xl tracking-tight">Patchlet</span>
         </Link>
@@ -23,15 +27,18 @@ export function SiteHeader() {
             </a>
           ))}
         </nav>
-        <div className="flex items-center gap-5">
-          <Link href="/console/activity" className="hidden text-sm text-ink/70 transition hover:text-ink sm:inline">
-            Activity
+        <div className="flex flex-none items-center gap-5">
+          <Link
+            href="/signin"
+            className="hidden text-sm font-medium text-ink/70 transition hover:text-ink sm:inline"
+          >
+            Sign in
           </Link>
           <Link
-            href="/console"
-            className="inline-flex items-center gap-2 rounded-full bg-accent-deep px-4 py-2 text-sm font-medium text-panel shadow-sm transition hover:bg-accent"
+            href="/signin?mode=signup"
+            className="inline-flex items-center gap-2 rounded-full bg-accent-deep px-4 py-2 text-sm font-medium whitespace-nowrap text-panel shadow-sm transition hover:bg-accent"
           >
-            Open the console
+            Get started
           </Link>
         </div>
       </div>

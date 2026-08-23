@@ -31,19 +31,13 @@ export function SiteFooter() {
           </div>
           <div className="space-y-2.5">
             <p className="text-[10px] font-semibold tracking-[0.22em] text-panel/40 uppercase">
-              Console
+              Account
             </p>
-            <Link href="/console" className="block transition hover:text-panel">
-              Overview
+            <Link href="/signin" className="block transition hover:text-panel">
+              Sign in
             </Link>
-            <Link href="/console/knowledge" className="block transition hover:text-panel">
-              Knowledge
-            </Link>
-            <Link href="/console/repository" className="block transition hover:text-panel">
-              Repository
-            </Link>
-            <Link href="/console/activity" className="block transition hover:text-panel">
-              Activity
+            <Link href="/signin?mode=signup" className="block transition hover:text-panel">
+              Get started
             </Link>
           </div>
         </div>
