@@ -69,6 +69,7 @@ export type RankInput = {
   role: string;
   visible: boolean;
   disabled?: boolean;
+  state?: string;
 };
 
 /** Higher is more likely to be what the question is about. */

@@ -8,6 +8,7 @@ export type Affordance = {
   href?: string;         // for links
   visible: boolean;      // in viewport and hit-testable
   disabled?: boolean;
+  state?: string;        // "selected", "expanded", "checked" and so on, when the control has one
 };
 
 export type PageContext = { url: string; title: string; affordances: Affordance[] };

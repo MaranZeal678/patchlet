@@ -3,6 +3,7 @@
  * a caption bubble beside it. The scrim never takes pointer events, so the user
  * clicks the real control rather than a copy of it.
  */
+import { isPointable } from './geometry';
 
 export type SpotlightView = {
   target: Element;
@@ -18,6 +19,8 @@ export type SpotlightHandlers = {
   onNext: () => void;
   onDone: () => void;
   onStop: () => void;
+  /** The target cannot be drawn any more, so the guide has to find another one. */
+  onLost?: () => void;
 };
 
 const PADDING = 8;
@@ -60,6 +63,14 @@ export class Spotlight {
   }
 
   show(view: SpotlightView): void {
+    // A control that has been unmounted still answers with a zero rect, and a
+    // caption drawn against one lands in the corner of the screen pointing at
+    // nothing. Say so instead of drawing it.
+    if (!isPointable(view.target)) {
+      this.hide();
+      this.handlers.onLost?.();
+      return;
+    }
     // A step often lives further down the page or inside a scrolled dialog.
     // Measuring before scrolling puts the ring where the control used to be.
     const rect = view.target.getBoundingClientRect();
@@ -112,6 +123,11 @@ export class Spotlight {
 
   private reposition(): void {
     if (!this.view) return;
+    if (!isPointable(this.view.target)) {
+      this.hide();
+      this.handlers.onLost?.();
+      return;
+    }
     const rect = this.view.target.getBoundingClientRect();
     const width = innerWidth;
     const height = innerHeight;

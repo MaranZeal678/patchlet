@@ -24,6 +24,20 @@ function idFor(result: ScanResult, name: string): string {
 
 const tick = () => new Promise((done) => setTimeout(done, 0));
 
+/** jsdom has no layout, so geometry-dependent behaviour needs rects supplied by hand. */
+function boxes(spec: Record<string, [number, number, number, number]>): () => void {
+  const undo: (() => void)[] = [];
+  for (const [selector, [left, top, width, height]] of Object.entries(spec)) {
+    const element = selector === ':root' ? document.documentElement : document.querySelector(selector);
+    if (!element) continue;
+    const rect = { x: left, y: top, left, top, width, height, right: left + width, bottom: top + height, toJSON: () => ({}) } as DOMRect;
+    const original = element.getBoundingClientRect;
+    Object.defineProperty(element, 'getBoundingClientRect', { value: () => rect, configurable: true });
+    undo.push(() => Object.defineProperty(element, 'getBoundingClientRect', { value: original, configurable: true }));
+  }
+  return () => { for (const step of undo) step(); };
+}
+
 beforeEach(() => {
   document.body.innerHTML = FIXTURE;
 });
@@ -183,6 +197,55 @@ describe('GuideMachine', () => {
     document.getElementById('update')?.click();
     await tick();
     expect(harness.machine.snapshot.state).toBe('DONE');
+  });
+
+  it('counts a press whose control is removed before the click as success', async () => {
+    // Menus dismiss on pointerdown, so the node the user pressed is gone before
+    // the browser can deliver a click. The press is the only evidence there is.
+    const initial = scan();
+    const steps: Step[] = [
+      { target: idFor(initial, 'Open the account menu'), caption: 'Open the account menu', advanceOn: 'click' },
+      { target: idFor(initial, 'Update profile'), caption: 'Save', advanceOn: 'click' },
+    ];
+    const harness = build(steps);
+    harness.start();
+
+    const account = document.getElementById('account') as HTMLElement;
+    account.dispatchEvent(new Event('pointerdown', { bubbles: true, composed: true }));
+    account.remove();
+    await tick();
+    await tick();
+
+    expect(harness.machine.snapshot.stepIndex).toBe(1);
+    expect(harness.machine.snapshot.state).toBe('SPOTLIGHTING');
+    expect(harness.machine.snapshot.target).toBe(document.getElementById('update'));
+    expect(harness.replan).not.toHaveBeenCalled();
+  });
+
+  it('re-plans instead of binding to a candidate with an empty rect', async () => {
+    // A detached or collapsed node still answers with a zero rect, and pointing
+    // a caption at one puts it in the top-left corner of the screen.
+    const restore = boxes({ ':root': [0, 0, 1024, 768], '#account': [10, 100, 200, 40], '#update': [0, 0, 0, 0] });
+    try {
+      const initial = scan();
+      const steps: Step[] = [
+        { target: idFor(initial, 'Open the account menu'), caption: 'Open the account menu', advanceOn: 'click' },
+        { target: idFor(initial, 'Update profile'), caption: 'Save', advanceOn: 'click' },
+      ];
+      const harness = build(steps);
+      harness.start();
+      expect(harness.machine.snapshot.target).toBe(document.getElementById('account'));
+
+      document.getElementById('account')?.click();
+      await tick();
+      await tick();
+
+      expect(harness.replan).toHaveBeenCalledWith(1);
+      expect(harness.machine.snapshot.target).not.toBe(document.getElementById('update'));
+      expect(harness.machine.snapshot.state).toBe('FAILED');
+    } finally {
+      restore();
+    }
   });
 
   it('advances on Next for a manual step', async () => {

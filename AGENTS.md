@@ -54,6 +54,22 @@ never cast it. Concretely:
   applier guards against path traversal for exactly this reason.
 - Never render model output as HTML.
 
+## Guiding a user on their own page
+
+The widget watches the host page; it never drives it. Two rules keep that honest, and both have
+regression tests in `packages/widget/test/machine.test.ts`:
+
+- A control that disappears within 1.5 s of the user pressing it counts as that step succeeding.
+  Menus and dialogs dismiss on `pointerdown` and unmount their trigger, so the `click` that would
+  have confirmed the action never has a node to fire on.
+- Nothing is ever bound or drawn against an empty or off-screen rect (`guide/geometry.ts`). A
+  detached node still answers `getBoundingClientRect` with zeros, and a caption anchored to one
+  lands in the top-left corner pointing at nothing. Treat it as lost and re-plan instead.
+
+Re-planning mid-walkthrough goes to `POST /api/chat` with `continueFrom`, which takes the fast path
+in `apps/web/lib/agent/continue.ts`: one small model call over the stored answer and its grounding,
+no understanding, probes or verdict.
+
 ## Secrets
 
 No literal secrets anywhere, including tests and fixtures. Every credential is read from the

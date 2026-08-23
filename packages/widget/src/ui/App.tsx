@@ -88,7 +88,12 @@ export function App({ client, shadow, host, position, register }: AppProps) {
         setAnnouncement(snapshot.state === 'DONE' ? 'Guidance finished.' : snapshot.message ?? 'Guidance stopped.');
         return;
       }
-      if (!snapshot.step || !snapshot.target) return;
+      // Between steps there is nothing to point at, and a caption left hanging
+      // over a control that has gone is worse than no caption.
+      if (!snapshot.step || !snapshot.target) {
+        spotlight.hide();
+        return;
+      }
       spotlight.show({
         target: snapshot.target,
         caption: snapshot.step.caption,
@@ -136,6 +141,7 @@ export function App({ client, shadow, host, position, register }: AppProps) {
         onNext: () => machineRef.current?.next(),
         onDone: () => machineRef.current?.next(),
         onStop: () => stopGuidance(),
+        onLost: () => machineRef.current?.lost(),
       });
     }
     if (!machineRef.current) {
@@ -188,25 +194,31 @@ export function App({ client, shadow, host, position, register }: AppProps) {
 
       const fresh = scan(text);
       scanRef.current = fresh;
+      // Build the spotlight while the request is in flight, so the first step
+      // appears the moment the answer lands rather than after it is set up.
+      ensureGuide();
 
       try {
         await client.ask({
           question: text,
           page: fresh.page,
           conversationId: conversationRef.current,
-          onEvent: (event) => commit(applyEvent(turn, event, conversationRef)),
+          onEvent: (event) => {
+            commit(applyEvent(turn, event, conversationRef));
+            // The stream stays open past the answer while the agent files its
+            // own bookkeeping. Guidance starts on the answer, not on the close.
+            if (event.type !== 'answer') return;
+            if (event.steps?.length) startGuidance(turn);
+            if (voiceOn) void player.play((signal) => client.speak(event.text, signal));
+          },
         });
-        if (turn.answer?.steps?.length) startGuidance(turn);
-        if (voiceOn && turn.answer) {
-          void player.play((signal) => client.speak(turn.answer?.text ?? '', signal));
-        }
       } catch {
         commit({ ...turn, error: 'The support service is not reachable right now.' });
       } finally {
         setBusy(false);
       }
     },
-    [busy, client, patch, player, scan, startGuidance, voiceOn],
+    [busy, client, ensureGuide, patch, player, scan, startGuidance, voiceOn],
   );
 
   const report = useCallback(
