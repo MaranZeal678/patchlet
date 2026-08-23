@@ -5,10 +5,10 @@
  */
 
 export const TOKEN_DEFAULTS = {
-  '--pl-accent': '#FA500F',
+  '--pl-accent': '#1f9d6b',
   '--pl-ink': '#1c1c1e',
   '--pl-muted': '#6b6b72',
-  '--pl-glass': 'rgba(255, 255, 255, 0.72)',
+  '--pl-glass': 'rgba(255, 255, 255, 0.58)',
   '--pl-radius': '18px',
 } as const;
 
@@ -20,14 +20,14 @@ const SHEET = `
   --pl-glass: ${TOKEN_DEFAULTS['--pl-glass']};
   --pl-radius: ${TOKEN_DEFAULTS['--pl-radius']};
 
-  --pl-glass-strong: rgba(255, 255, 255, 0.9);
-  --pl-border: rgba(255, 255, 255, 0.55);
+  --pl-glass-strong: rgba(255, 255, 255, 0.78);
+  --pl-border: rgba(255, 255, 255, 0.7);
   --pl-hairline: rgba(0, 0, 0, 0.08);
-  --pl-field: rgba(255, 255, 255, 0.62);
-  --pl-bubble: rgba(255, 255, 255, 0.78);
-  --pl-shadow: 0 20px 56px rgba(16, 16, 24, 0.18), 0 2px 8px rgba(16, 16, 24, 0.07);
+  --pl-field: rgba(255, 255, 255, 0.5);
+  --pl-bubble: rgba(255, 255, 255, 0.66);
+  --pl-shadow: 0 24px 70px rgba(16, 16, 24, 0.22), 0 2px 10px rgba(16, 16, 24, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.85);
   --pl-scrim: rgba(14, 14, 20, 0.42);
-  --pl-blur: blur(18px) saturate(160%);
+  --pl-blur: blur(28px) saturate(190%);
 
   all: initial;
   position: fixed;

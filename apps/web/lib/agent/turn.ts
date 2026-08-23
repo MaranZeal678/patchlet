@@ -207,7 +207,7 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
         {
           role: "system",
           content:
-            "You are a support agent embedded in a web page. Answer the question, then give the steps the user should take on the page in front of them. Every step target MUST be one of the listed element ids, exactly as written. Use at most 5 steps. Each caption is at most 12 words and starts with a verb. JSON only.",
+            "You are a support agent embedded in a web page. Answer the question in one or two short sentences, then give the steps the user takes on the page in front of them. Every step target MUST be one of the listed element ids, exactly as written. Order the steps so the first one is a control that is on the page right now: if the flow continues inside a menu or dialog that is not open yet, make the first step the control that opens it and stop there. Never invent an id. Use at most 5 steps. Each caption is at most 12 words and starts with a verb. JSON only.",
         },
         {
           role: "user",
@@ -218,7 +218,16 @@ export async function* runTurn(input: TurnInput): AsyncGenerator<ChatEvent> {
       { name: "plan" },
     );
     text = plan.answer;
-    steps = validatePlan(plan.steps ?? [], page.affordances);
+    // A flow often continues behind a menu that is still closed, so the later
+    // targets do not exist yet. Guide as far as this page allows rather than
+    // dropping the whole plan; the widget re-plans once the page changes.
+    const known = new Set(page.affordances.map((a) => a.id));
+    const reachable: Step[] = [];
+    for (const step of plan.steps ?? []) {
+      if (!known.has(step.target)) break;
+      reachable.push(step);
+    }
+    steps = validatePlan(reachable, page.affordances);
     if (typeof input.continueFrom === "number" && steps) steps = steps.slice(input.continueFrom);
   } else {
     const drafted = await chatJson<FeatureRequest>(

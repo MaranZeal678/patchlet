@@ -31,11 +31,6 @@ export function MessageList({
         <div class="pl-empty">
           <h3>How can we help?</h3>
           <p>Ask a question and we will point at the right control on this page.</p>
-          <div class="pl-suggest">
-            <button type="button" class="pl-btn" onClick={() => onSuggestion('How do I change my username?')}>
-              How do I change my username?
-            </button>
-          </div>
         </div>
       )}
 
