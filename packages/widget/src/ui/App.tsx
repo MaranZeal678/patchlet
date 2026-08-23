@@ -84,6 +84,7 @@ export function App({ client, shadow, host, position, register }: AppProps) {
         spotlight.hide();
         guidedRef.current = null;
         setGuidingTurnId(null);
+        setOpen(true);
         setAnnouncement(snapshot.state === 'DONE' ? 'Guidance finished.' : snapshot.message ?? 'Guidance stopped.');
         return;
       }
@@ -160,6 +161,9 @@ export function App({ client, shadow, host, position, register }: AppProps) {
       ensureGuide();
       guidedRef.current = { turnId: turn.id, question: turn.question };
       setGuidingTurnId(turn.id);
+      // The caption carries the instruction from here, and a panel covering the
+      // control the user must click is worse than no panel at all.
+      setOpen(false);
       machineRef.current?.start(current, steps);
     },
     [ensureGuide],

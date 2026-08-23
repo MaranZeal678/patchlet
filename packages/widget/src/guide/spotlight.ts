@@ -60,6 +60,17 @@ export class Spotlight {
   }
 
   show(view: SpotlightView): void {
+    // A step often lives further down the page or inside a scrolled dialog.
+    // Measuring before scrolling puts the ring where the control used to be.
+    const rect = view.target.getBoundingClientRect();
+    const offscreen =
+      rect.top < 8 ||
+      rect.left < 8 ||
+      rect.bottom > window.innerHeight - 8 ||
+      rect.right > window.innerWidth - 8;
+    if (offscreen) {
+      view.target.scrollIntoView({ block: 'center', inline: 'center', behavior: 'auto' });
+    }
     this.view = view;
     this.counter.textContent = `Step ${view.index + 1} of ${view.total}`;
     this.text.textContent = view.caption;
