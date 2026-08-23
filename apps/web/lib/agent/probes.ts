@@ -60,14 +60,22 @@ export async function probeDocs(question: string, projectId: string): Promise<Pr
     // A passage we parsed badly should not ground a confident answer.
     const damping = top.confidence === null ? 1 : 0.6 + 0.4 * top.confidence;
     const score = top.similarity * damping;
+    // Embeddings put unrelated prose surprisingly close together, so distance
+    // alone will happily "find" a contact page for a question about theming.
+    // Require the passage to actually use the words the question is about.
+    const asked = concepts(question);
+    const found = concepts(`${top.heading ?? ""} ${top.content}`);
+    let overlap = 0;
+    for (const token of asked) if (found.has(token)) overlap += 1;
+    const grounded = asked.size === 0 ? false : overlap / asked.size >= 0.34;
     return {
       probe: "docs",
-      hit: score >= 0.7,
+      hit: score >= 0.7 && grounded,
       score,
       summary:
-        score >= 0.7
+        score >= 0.7 && grounded
           ? `The documentation covers this (${score.toFixed(2)}).`
-          : `Nothing in the documentation is a close match (best ${score.toFixed(2)}).`,
+          : `Nothing in the documentation covers this (best ${score.toFixed(2)}).`,
       evidence: rows.slice(0, 3).map((row) => ({
         heading: row.heading,
         snippet: row.content.slice(0, 240),
