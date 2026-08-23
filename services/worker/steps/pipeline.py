@@ -12,6 +12,7 @@ import config
 from models import Approval, Draft, FeatureRequestInput, IssueRef, Outcome, Plan, PrRef
 from steps import codegen, db, deploy, drafting, issue as issue_text, mcp_github, repo, slack, trace
 from steps.github import GitHubClient
+from steps.github_token import project_token
 from steps.reporter import Reporter
 
 PAUSE_LABEL = "Merge this pull request?"
@@ -53,7 +54,7 @@ def file_issue(req: FeatureRequestInput) -> IssueRef:
     body = issue_text.build_issue_body(req, criteria, priority=priority)
     trace.issue_draft(req.project_id, req.escalation_id, req.title, body)
 
-    github = GitHubClient(req.repo_full_name)
+    github = GitHubClient.for_project(req.repo_full_name, req.project_id)
     created_labels = github.ensure_labels(labels)
     if created_labels:
         reporter.tool(
@@ -106,7 +107,7 @@ def inspect_repository(req: FeatureRequestInput, issue: IssueRef) -> Plan:
     reporter = Reporter(req.project_id, req.escalation_id)
     workdir = Path(tempfile.mkdtemp(prefix="patchlet-inspect-"))
     try:
-        sha = repo.clone(req.repo_full_name, req.default_branch, workdir)
+        sha = repo.clone(req.repo_full_name, req.default_branch, workdir, token=project_token(req.project_id))
         reporter.tool(
             f"Cloned {req.repo_full_name}@{req.default_branch}", "git clone", "git",
             f"--depth 1 --branch {req.default_branch}", f"HEAD {sha[:7]}",
@@ -132,7 +133,7 @@ def draft_implementation(req: FeatureRequestInput, issue: IssueRef, plan: Plan) 
     reporter = Reporter(req.project_id, req.escalation_id)
     workdir = Path(tempfile.mkdtemp(prefix="patchlet-draft-"))
     try:
-        repo.clone(req.repo_full_name, req.default_branch, workdir)
+        repo.clone(req.repo_full_name, req.default_branch, workdir, token=project_token(req.project_id))
         draft = drafting.draft_with_gates(workdir, req, issue.title, issue.body, plan, reporter, repo.repo_slug(req.repo_full_name))
         reporter.diff([{"path": d.path, "patch": d.patch} for d in draft.diffs])
         return draft
@@ -145,7 +146,7 @@ def draft_implementation(req: FeatureRequestInput, issue: IssueRef, plan: Plan) 
 def open_draft_pr(req: FeatureRequestInput, issue: IssueRef, plan: Plan, draft: Draft) -> PrRef:
     _set_status(req, "pr_open")
     reporter = Reporter(req.project_id, req.escalation_id)
-    github = GitHubClient(req.repo_full_name)
+    github = GitHubClient.for_project(req.repo_full_name, req.project_id)
     branch = f"patchlet/{issue.number}-{_slug(req.title)}"
     parent = draft.base_sha or github.get_branch_sha(req.default_branch)
     title = req.title[0].lower() + req.title[1:] if req.title else "change"
@@ -197,7 +198,7 @@ def open_draft_pr(req: FeatureRequestInput, issue: IssueRef, plan: Plan, draft: 
 
 def merge_and_deploy(req: FeatureRequestInput, issue: IssueRef, pr: PrRef, decision: Approval) -> Outcome:
     reporter = Reporter(req.project_id, req.escalation_id)
-    github = GitHubClient(req.repo_full_name)
+    github = GitHubClient.for_project(req.repo_full_name, req.project_id)
     approval = {"approved": decision.approved, "note": decision.note, "decidedAt": datetime.now(timezone.utc).isoformat()}
     if not decision.approved:
         note = decision.note.strip() or "Closed without merging."

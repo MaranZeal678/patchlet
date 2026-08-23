@@ -93,8 +93,8 @@ yourself (see `.env.example`).
 | `MISTRAL_API_KEY` | yes | Mistral API key (models and the Workflows worker) |
 | `DEPLOYMENT_NAME` | yes (worker.py) | Workflows deployment name; the dashboard's `MISTRAL_DEPLOYMENT_NAME` must match (`patchlet-worker`) |
 | `SUPABASE_URL` | yes | `https://<ref>.supabase.co` |
-| `SUPABASE_SERVICE_ROLE_KEY` | yes | service role key; the worker writes `escalation` and `trace_event` |
-| `GITHUB_TOKEN` | yes | fine-grained PAT with contents, issues and pull requests read-write on the target repository |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes | service role key; the worker writes `escalation` and `trace_event`, and derives the key that decrypts a project's linked GitHub token |
+| `GITHUB_TOKEN` | yes | fallback credential, used only for a project whose owner has not linked a GitHub account: fine-grained PAT with contents, issues and pull requests read-write on the target repository |
 | `VERCEL_TOKEN` | yes | token for the Vercel team that owns the target project |
 | `TARGET_VERCEL_PROJECT` | no (`not-mistral`) | Vercel project name whose deployment the worker waits for |
 | `SLACK_WEBHOOK_URL` | no | post a message when an issue and a draft PR exist |

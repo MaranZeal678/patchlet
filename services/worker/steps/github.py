@@ -10,6 +10,7 @@ from urllib.parse import quote
 import requests
 
 import config
+from steps.github_token import project_token
 
 API = "https://api.github.com"
 GRAPHQL = "https://api.github.com/graphql"
@@ -39,6 +40,16 @@ class GitHubClient:
         self.owner, self.repo = repo_full_name.split("/", 1)
         self.full_name = repo_full_name
         self._token = token or config.github_token()
+
+    @classmethod
+    def for_project(cls, repo_full_name: str, project_id: str) -> "GitHubClient":
+        """The project's own linked token when it has one, the server credential otherwise."""
+        return cls(repo_full_name, token=project_token(project_id))
+
+    @property
+    def token(self) -> str:
+        """The credential this client resolved to, so MCP and git clone use the same one."""
+        return self._token
 
     # ---- plumbing -------------------------------------------------------
 

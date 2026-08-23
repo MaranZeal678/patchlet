@@ -8,6 +8,8 @@ dependencies = [
     "requests>=2.32",
     "mcp>=1.9",
     "pydantic>=2.7",
+    # Reads the GitHub token the dashboard encrypted; see steps/github_token.py.
+    "cryptography>=42",
 ]
 
 [project.optional-dependencies]
