@@ -1,11 +1,23 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Fraunces, Inter, Newsreader } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
+
+/** Display serif, used for the landing page headlines. */
+const fraunces = Fraunces({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-inter",
+  axes: ["SOFT", "WONK"],
+  variable: "--font-fraunces",
+});
+
+/** Reading serif, used for every heading inside the console. */
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500", "600"],
+  variable: "--font-newsreader",
 });
 
 export const metadata: Metadata = {
@@ -16,7 +28,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${inter.variable} ${fraunces.variable} ${newsreader.variable}`}>
       <body className="font-sans antialiased">{children}</body>
     </html>
   );

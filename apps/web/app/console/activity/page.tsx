@@ -1,18 +1,17 @@
-import { Glass } from "@/components/Glass";
+import { ActivityConsole } from "@/components/console/ActivityConsole";
 import { PageHeader } from "@/components/PageHeader";
+
+export const dynamic = "force-dynamic";
 
 export default function ActivityPage() {
   return (
     <>
       <PageHeader
-        title="Activity"
-        description="Every check, decision and artefact, streamed live from the agent and the worker."
+        eyebrow="Activity"
+        title="The live trace"
+        description="Every check, decision and artefact, streamed from the agent and the worker as it happens."
       />
-      <Glass>
-        <p className="text-[var(--muted)]">
-          Recent conversations and escalations, and the live trace for the selected one, appear here.
-        </p>
-      </Glass>
+      <ActivityConsole />
     </>
   );
 }
