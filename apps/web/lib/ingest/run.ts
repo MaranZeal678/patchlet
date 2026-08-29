@@ -4,7 +4,7 @@
  * The row exists before the work starts, so a source that fails halfway is visible as a failed
  * source rather than as nothing at all, and the console can say why.
  */
-import { embed } from "../mistral";
+import { embed } from "../openai";
 import { serviceClient } from "../supabase";
 import { chunkPages } from "./chunk";
 import { storeOriginal } from "./storage";

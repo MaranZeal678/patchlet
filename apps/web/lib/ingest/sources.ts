@@ -4,7 +4,7 @@
  * A file is either scanned or read: pdfs and images go through the document reader, markdown,
  * text and html are parsed here. An address is crawled. A written note is taken as it is.
  */
-import { ocr } from "../mistral";
+import { ocr } from "../openai";
 import { crawl, crawledToPages } from "./crawl";
 import { htmlToText } from "./html";
 import { firstHeading, markdownPage } from "./markdown";

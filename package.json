@@ -1,5 +1,5 @@
 {
-  "name": "patchlet",
+  "name": "action-compiler",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -18,12 +18,19 @@
     "lint": "npm run lint --workspaces --if-present",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:seed": "node scripts/seed.mjs",
-    "demo:reset": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/reset-demo.mjs"
+    "demo:reset": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/reset-demo.mjs",
+    "dev:target": "npm run dev --workspace @patchlet/target",
+    "dev:web": "npm run dev --workspace @patchlet/web -- -p 3200",
+    "build:recorder": "npm run build:recorder --workspace @patchlet/widget",
+    "seed": "tsx scripts/seed-sessions.ts",
+    "demo": "node scripts/demo-check.mjs"
   },
   "devDependencies": {
     "pg": "^8.13.1",
     "tsx": "^4.23.12",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
-  }
+    "vitest": "^2.1.8",
+    "jsdom": "^25.0.1"
+  },
+  "description": "Action Compiler — watches how real people use software and compiles their behaviour into semantic actions AI agents can call. Built on Patchlet."
 }

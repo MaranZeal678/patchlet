@@ -8,7 +8,7 @@
  */
 import { MODELS, validatePlan } from "@patchlet/shared";
 import type { PageContext, Step } from "@patchlet/shared";
-import { chatJson } from "../mistral";
+import { chatJson } from "../openai";
 import { serviceClient } from "../supabase";
 import { emitTrace } from "../trace";
 import { affordanceList, dropRepeats, visibleAffordances } from "./page";

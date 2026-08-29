@@ -6,7 +6,7 @@
  */
 import { MODELS } from "@patchlet/shared";
 import type { Step, Verdict } from "@patchlet/shared";
-import { chatJson } from "../mistral";
+import { chatJson } from "../openai";
 import { serviceClient } from "../supabase";
 import { deriveOutcome, reconcileOutcome, type ConversationOutcome } from "./outcome";
 

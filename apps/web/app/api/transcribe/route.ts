@@ -1,7 +1,7 @@
 /** Speech to text for the widget's microphone, through Voxtral. */
 import { preflight, withCors } from "@/lib/cors";
 import { serviceClient } from "@/lib/supabase";
-import { transcribe } from "@/lib/mistral";
+import { transcribe } from "@/lib/openai";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;

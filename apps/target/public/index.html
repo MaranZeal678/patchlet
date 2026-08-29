@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Meridian Supply — Admin</title>
+<link rel="stylesheet" href="/app.css" />
+</head>
+<body>
+<div id="root" aria-busy="true"></div>
+<script>
+  // Where the Action Compiler recorder ships trajectories. The widget key scopes the project.
+  window.ACTION_COMPILER = {
+    endpoint: (window.AC_ENDPOINT || "http://localhost:3200") + "/api/observe",
+    app: "meridian-admin",
+  };
+</script>
+<script src="/widget/recorder.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

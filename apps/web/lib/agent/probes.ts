@@ -6,7 +6,7 @@
  */
 import { keywordScore, concepts } from "@patchlet/shared";
 import type { Affordance, PageContext, ProbeResult } from "@patchlet/shared";
-import { embed } from "../mistral";
+import { embed } from "../openai";
 import { serviceClient } from "../supabase";
 import { activeGithubToken } from "../github/connection";
 

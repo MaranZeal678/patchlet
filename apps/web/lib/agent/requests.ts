@@ -8,7 +8,7 @@
  */
 import { REQUEST_MATCH_THRESHOLD, priorityFor, warrantsPullRequest } from "@patchlet/shared";
 import type { FeatureRequest, RequestGroup, RequestGroupStatus, RequestPriority } from "@patchlet/shared";
-import { embed } from "../mistral";
+import { embed } from "../openai";
 import { serviceClient } from "../supabase";
 import { startRun, type RunProject } from "./runner";
 

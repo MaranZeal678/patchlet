@@ -12,7 +12,7 @@ import type {
   Step,
   Verdict,
 } from "@patchlet/shared";
-import { chatJson, embed } from "../mistral";
+import { chatJson, embed } from "../openai";
 import { serviceClient } from "../supabase";
 import { emitTrace } from "../trace";
 import { loadVisitorFacts, rememberFromTurn } from "./memory";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EMBED_DIMENSIONS, MODELS } from "@patchlet/shared";
-import { chatJson, chatText, embed, listModels, ocr, speakStream, transcribe } from "@/lib/mistral";
+import { chatJson, chatText, embed, listModels, ocr, speakStream, transcribe } from "@/lib/openai";
 import { textPdfDataUrl } from "./fixtures/pdf";
 
 /**

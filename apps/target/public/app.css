@@ -1,0 +1,70 @@
+/* Meridian Supply admin — clean, ordinary SaaS internal tool. */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font: 14px/1.5 -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
+  color: #1c2733;
+  background: #f4f6f8;
+}
+.layout { display: flex; min-height: 100vh; }
+nav {
+  width: 210px; flex: none; background: #10263d; color: #cfdcea;
+  padding: 20px 12px; display: flex; flex-direction: column; gap: 2px;
+}
+.brand { font-weight: 700; font-size: 16px; color: #fff; padding: 0 10px; }
+.brand-sub { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #7d97b4; padding: 0 10px 16px; }
+.nav-link { display: block; padding: 8px 10px; border-radius: 6px; color: #cfdcea; text-decoration: none; }
+.nav-link:hover { background: #1b3a55; }
+.nav-link.current { background: #2563eb; color: #fff; }
+main { flex: 1; padding: 28px 36px; max-width: 900px; }
+h1 { font-size: 22px; margin: 0 0 8px; }
+h2 { font-size: 16px; margin: 18px 0 8px; }
+.muted { color: #5b6b7c; }
+.cards { display: flex; gap: 14px; margin: 18px 0; }
+.card { background: #fff; border: 1px solid #dde5ec; border-radius: 10px; padding: 16px 20px; }
+.stat-value { font-size: 26px; font-weight: 700; }
+.stat-label { color: #5b6b7c; font-size: 12px; }
+.toolbar { margin: 14px 0; }
+input[type="search"], input[type="text"], select {
+  font: inherit; padding: 8px 10px; border: 1px solid #c5d1dd; border-radius: 8px;
+  background: #fff; min-width: 260px;
+}
+table.list { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #dde5ec; border-radius: 10px; overflow: hidden; }
+table.list th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #5b6b7c; padding: 10px 12px; border-bottom: 1px solid #dde5ec; }
+table.list td { padding: 10px 12px; border-bottom: 1px solid #eef2f6; }
+table.list a { color: #2563eb; text-decoration: none; font-weight: 600; }
+.badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #e5eaf0; color: #44536a; }
+.badge-paid { background: #e0ecff; color: #1d4ed8; }
+.badge-fulfilled { background: #ede9fe; color: #6d28d9; }
+.badge-delivered { background: #dcfce7; color: #15803d; }
+.badge-cancelled { background: #fee2e2; color: #b91c1c; }
+.badge-refunded, .badge-partially_refunded { background: #ffedd5; color: #c2410c; }
+.badge-open { background: #fee2e2; color: #b91c1c; }
+.badge-pending { background: #fef9c3; color: #a16207; }
+.badge-resolved { background: #dcfce7; color: #15803d; }
+.tabs { display: flex; gap: 4px; margin: 14px 0; border-bottom: 1px solid #dde5ec; }
+.tab { padding: 8px 14px; color: #44536a; text-decoration: none; border-bottom: 2px solid transparent; }
+.tab.selected { color: #2563eb; border-bottom-color: #2563eb; font-weight: 600; }
+.props { display: grid; grid-template-columns: 160px 1fr; gap: 6px 16px; background: #fff; border: 1px solid #dde5ec; border-radius: 10px; padding: 16px 20px; }
+.props dt { color: #5b6b7c; }
+.props dd { margin: 0; font-weight: 600; }
+.actions { display: flex; gap: 10px; margin: 18px 0; }
+button { font: inherit; font-weight: 600; padding: 9px 16px; border-radius: 8px; border: 1px solid transparent; background: #2563eb; color: #fff; cursor: pointer; }
+button:hover { background: #1e50c8; }
+button.secondary { background: #fff; color: #1c2733; border-color: #c5d1dd; }
+.dialog { background: #fff; border: 1px solid #b9c8d8; border-radius: 12px; padding: 18px 22px; margin: 16px 0; box-shadow: 0 8px 30px rgba(16, 38, 61, .12); max-width: 520px; }
+.dialog h2 { margin-top: 0; }
+fieldset { border: 1px solid #dde5ec; border-radius: 8px; margin: 0 0 12px; padding: 10px 14px; }
+legend { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #5b6b7c; padding: 0 6px; }
+.check { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
+.field { display: block; margin: 10px 0; }
+.field > span { display: block; font-size: 12px; color: #5b6b7c; margin-bottom: 4px; }
+.flash { background: #dcfce7; border: 1px solid #86efac; color: #14532d; border-radius: 8px; padding: 10px 14px; margin: 10px 0; }
+.order-status { margin: 6px 0; }
+.linked { margin-top: 14px; }
+.linked a { color: #2563eb; font-weight: 600; }
+.thread { display: flex; flex-direction: column; gap: 10px; margin: 14px 0; }
+.msg { background: #fff; border: 1px solid #dde5ec; border-radius: 10px; padding: 10px 14px; max-width: 560px; }
+.msg-agent { border-left: 3px solid #2563eb; }
+.msg-customer { border-left: 3px solid #94a3b8; }
+.msg-from { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #5b6b7c; margin-bottom: 2px; }

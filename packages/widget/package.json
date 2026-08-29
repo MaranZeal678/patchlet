@@ -14,7 +14,8 @@
     "mock": "tsx dev/mock-api.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p dev",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:recorder": "vite build -c vite.recorder.config.ts"
   },
   "dependencies": {
     "dom-accessibility-api": "^0.7.0",

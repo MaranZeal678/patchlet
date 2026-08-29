@@ -1,7 +1,7 @@
 /** Text to speech for the widget, streamed so playback starts quickly. */
 import { preflight, withCors } from "@/lib/cors";
 import { serviceClient } from "@/lib/supabase";
-import { speakStream } from "@/lib/mistral";
+import { speakStream } from "@/lib/openai";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;

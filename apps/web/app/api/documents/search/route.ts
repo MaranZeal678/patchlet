@@ -7,7 +7,7 @@
 import { corsJson, preflight } from "@/lib/cors";
 import { asErrorResponse, currentProject } from "@/lib/console/current";
 import type { SearchMatch } from "@/lib/ingest/types";
-import { embed } from "@/lib/mistral";
+import { embed } from "@/lib/openai";
 import { serviceClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";

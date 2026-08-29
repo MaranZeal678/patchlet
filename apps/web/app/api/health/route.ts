@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listModels } from "@/lib/mistral";
+import { listModels } from "@/lib/openai";
 import { serviceClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";

@@ -7,7 +7,7 @@
  * who the person is at work, what they are building, and how they like to be helped.
  */
 import { MODELS } from "@patchlet/shared";
-import { chatJson } from "../mistral";
+import { chatJson } from "../openai";
 import { serviceClient } from "../supabase";
 
 /** Facts loaded into a turn. Twenty is far more than any answer needs and keeps the prompt small. */
