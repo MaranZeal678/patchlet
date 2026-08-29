@@ -267,6 +267,14 @@ export default function CompilerConsole() {
                               <StatusBadge status={tool.status} />
                               <span className="ml-auto text-[11px] text-zinc-500">{tool.runtime}</span>
                             </div>
+                            <div className="mt-1 flex items-center gap-2 text-[11px] text-zinc-500">
+                              <span>{tool.sandbox ?? "local sandbox"}</span>
+                              {tool.sessionUrl && (
+                                <a href={tool.sessionUrl} target="_blank" rel="noreferrer" className="text-emerald-400 underline decoration-emerald-800 hover:text-emerald-300">
+                                  view session in Reflex ↗
+                                </a>
+                              )}
+                            </div>
                             <ul className="mt-2 space-y-1 text-xs">
                               {tool.validation.checks.map((check) => (
                                 <li key={check.name} className={check.ok ? "text-emerald-400" : "text-red-400"}>

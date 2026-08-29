@@ -87,7 +87,7 @@ export type DiscoveredWorkflow = {
   createdAt: string;
 };
 
-export type ToolStrategy = "api" | "hybrid" | "macro";
+export type ToolStrategy = "api" | "hybrid" | "macro" | "reflex";
 
 export type ValidationCheck = { name: string; ok: boolean; detail: string };
 
@@ -101,6 +101,10 @@ export type CompiledTool = {
   smoke: { ok: boolean; ms: number; error?: string } | null;
   status: "draft" | "validated" | "proven" | "rejected";
   runtime: string;
+  /** Where this lineage's code was written: "local sandbox" or a Reflex devbox label. */
+  sandbox?: string;
+  /** Link to the live Reflex session, when the lineage ran in one. */
+  sessionUrl?: string;
   createdAt: string;
 };
 
@@ -220,7 +224,9 @@ export function validateToolSource(
   });
 
   // api.call with a non-literal first argument would dodge the static check.
-  const dynamicCall = /api\.call\(\s*[^"'`]/.test(code);
+  // (\s is excluded from the class or the regex would "match" the newline in a
+  // multi-line call by letting \s* take nothing.)
+  const dynamicCall = /api\.call\(\s*[^"'`\s]/.test(code);
   checks.push({
     name: "static-endpoints",
     ok: !dynamicCall,

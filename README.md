@@ -92,10 +92,14 @@ dims); without it the same OpenAI-shaped calls fall back to
 - **PostHog** — the eyes. The recorder is PostHog-shaped session capture with
   one addition: structured affordance maps around every event, which is what
   makes behaviour compilable rather than merely replayable.
-- **Runloop / Reflex** — the laboratory. Compilation runs as parallel isolated
-  lineages against disposable sandboxes of the running app — the same
-  launch-parallel-sessions, validate, keep-the-winner loop Reflex runs Codex
-  with in cloud devboxes.
+- **Runloop / Reflex** — the laboratory, for real. With `RUNLOOP_API_KEY` (an
+  `rfx_` Reflex key) set, every compile adds a third lineage: an actual coding
+  agent launched in an isolated Runloop devbox through the Reflex API
+  (`lib/compiler/reflex.ts`) — Codex when the org has OpenAI credentials
+  configured in Reflex, opencode on Runloop-provided models otherwise. The
+  console links to the live session; the devbox writes the code, and the same
+  validator, sandbox smoke test, and equivalence proof judge it. The two local
+  lineages keep the demo fast and are the fallback without a key.
 - **Tenor** — the reward function. The race is scored not in clicks but in
   business value per unit of AI spent; the fitness formula is printed on the
   card.

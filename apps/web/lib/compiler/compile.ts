@@ -19,6 +19,7 @@ import { saveTool, stepsOf } from "./db";
 import { extractParams, primaryEffect } from "./extract";
 import { createSandbox, dropSandbox, effectsOf, effectsOfInstance, toolApi } from "./target";
 import { chatText, codeModel } from "../openai";
+import { awaitModule, launchAgent, pickAgentType, reflexAvailable, sessionUrl, stopAgent } from "./reflex";
 
 /** Loads generated ESM without the bundler noticing the import(). */
 export async function importTool(code: string): Promise<{ run: (api: unknown, params: unknown) => Promise<unknown> }> {
@@ -50,7 +51,32 @@ const STRATEGY_BRIEF: Record<ToolStrategy, string> = {
   hybrid:
     "Read relevant state with api.get first to validate preconditions, perform the mutation, then read back with api.get to confirm the change, and include the confirmation in the return value.",
   macro: "",
+  reflex: "Make the minimum demonstrated API calls needed to perform the task, with clear error messages.",
 };
+
+/** Runs generated code once against a disposable sandbox of the real app. */
+async function smokeTest(
+  code: string,
+  workflow: DiscoveredWorkflow,
+  paramExample: Record<string, unknown>,
+  label: string,
+): Promise<NonNullable<CompiledTool["smoke"]>> {
+  const sandbox = await createSandbox();
+  const started = Date.now();
+  try {
+    const module = await importTool(code);
+    await module.run(toolApi(sandbox, workflow.endpoints, label), paramExample);
+    const observed = await effectsOfInstance(sandbox);
+    const mutated = observed.some((effect) => effect.ok && effect.template === workflow.signature[0]);
+    return mutated
+      ? { ok: true, ms: Date.now() - started }
+      : { ok: false, ms: Date.now() - started, error: "tool ran but the demonstrated effect did not happen" };
+  } catch (error) {
+    return { ok: false, ms: Date.now() - started, error: (error as Error).message.slice(0, 300) };
+  } finally {
+    await dropSandbox(sandbox).catch(() => undefined);
+  }
+}
 
 /**
  * Probes the read API once so codegen sees real response shapes instead of
@@ -169,21 +195,7 @@ export async function compileWorkflow(workflow: DiscoveredWorkflow): Promise<Com
         }
 
         if (validation.ok) {
-          const sandbox = await createSandbox();
-          const smokeStart = Date.now();
-          try {
-            const module = await importTool(code);
-            await module.run(toolApi(sandbox, workflow.endpoints, `smoke-${workflow.id}`), paramExample);
-            const observed = await effectsOfInstance(sandbox);
-            const mutated = observed.some((effect) => effect.ok && effect.template === workflow.signature[0]);
-            smoke = mutated
-              ? { ok: true, ms: Date.now() - smokeStart }
-              : { ok: false, ms: Date.now() - smokeStart, error: "tool ran but the demonstrated effect did not happen" };
-          } catch (error) {
-            smoke = { ok: false, ms: Date.now() - smokeStart, error: (error as Error).message.slice(0, 300) };
-          } finally {
-            await dropSandbox(sandbox).catch(() => undefined);
-          }
+          smoke = await smokeTest(code, workflow, paramExample, `smoke-${workflow.id}`);
         }
       } catch (error) {
         validation = {
@@ -202,6 +214,7 @@ export async function compileWorkflow(workflow: DiscoveredWorkflow): Promise<Com
         smoke,
         status: validation.ok && smoke?.ok ? "validated" : "rejected",
         runtime: `${Date.now() - started}ms`,
+        sandbox: "local sandbox",
         createdAt: new Date().toISOString(),
       };
       saveTool(tool);
@@ -209,7 +222,89 @@ export async function compileWorkflow(workflow: DiscoveredWorkflow): Promise<Com
     }),
   );
 
+  // Third lineage: a real coding-agent session in a Reflex devbox. It runs in
+  // the background (devboxes take minutes, the console polls) and is judged by
+  // exactly the same validator, smoke test, and later proof as the local ones.
+  if (reflexAvailable()) {
+    void compileReflexLineage(workflow, examples, paramExample, readExamples).catch((error) =>
+      console.error("reflex lineage failed:", error),
+    );
+  }
+
   return tools;
+}
+
+async function compileReflexLineage(
+  workflow: DiscoveredWorkflow,
+  examples: string,
+  paramExample: Record<string, unknown>,
+  readExamples: string,
+): Promise<void> {
+  const started = Date.now();
+  const tool: CompiledTool = {
+    id: `tool-${workflow.name}-reflex`,
+    workflowId: workflow.id,
+    name: workflow.name,
+    strategy: "reflex",
+    code: "",
+    validation: { ok: false, checks: [{ name: "reflex-session", ok: true, detail: "launching devbox…" }] },
+    smoke: null,
+    status: "draft",
+    runtime: "…",
+    sandbox: "reflex devbox",
+    createdAt: new Date().toISOString(),
+  };
+  saveTool(tool);
+
+  const finish = (status: CompiledTool["status"], checks: CompiledTool["validation"]["checks"], ok: boolean): void => {
+    tool.validation = { ok, checks };
+    tool.status = status;
+    tool.runtime = `${Date.now() - started}ms`;
+    saveTool(tool);
+  };
+
+  const agentType = await pickAgentType();
+  if (!agentType) {
+    return finish("rejected", [{ name: "reflex-session", ok: false, detail: "no agent type has credentials in this Reflex org" }], false);
+  }
+
+  const prompt = [
+    codegenPrompt(workflow, "reflex", examples, paramExample, readExamples),
+    ``,
+    `You are running inside a disposable devbox. Do not create files, branches, commits, or pull requests.`,
+    `Print the finished module in your final reply between these exact markers:`,
+    `===MODULE START===`,
+    `<the module source>`,
+    `===MODULE END===`,
+  ].join("\n");
+
+  const agent = await launchAgent(`compile ${workflow.name}`, prompt, agentType);
+  tool.sandbox = `reflex devbox · ${agentType}`;
+  tool.sessionUrl = sessionUrl(agent.id);
+  tool.validation.checks = [{ name: "reflex-session", ok: true, detail: `${agentType} session ${agent.id} running` }];
+  saveTool(tool);
+
+  const { status, code } = await awaitModule(agent.id);
+  await stopAgent(agent.id);
+
+  if (!code) {
+    return finish(
+      "rejected",
+      [{ name: "reflex-session", ok: false, detail: `session ended (${status}) without a module between the markers` }],
+      false,
+    );
+  }
+
+  tool.code = code;
+  const validation = validateToolSource(code, workflow.endpoints);
+  const checks = [
+    { name: "reflex-session", ok: true, detail: `${agentType} wrote the module in devbox session ${agent.id}` },
+    ...validation.checks,
+  ];
+  if (!validation.ok) return finish("rejected", checks, false);
+
+  tool.smoke = await smokeTest(code, workflow, paramExample, `smoke-reflex-${workflow.id}`);
+  finish(tool.smoke.ok ? "validated" : "rejected", checks, validation.ok);
 }
 
 /** Sample trajectory captions — shown beside the compiled code in the console. */
