@@ -31,10 +31,16 @@ type StepPayload = {
   after: PageContext;
 };
 
-const config = (window as unknown as { ACTION_COMPILER?: { endpoint?: string; app?: string } }).ACTION_COMPILER ?? {};
+const config =
+  (window as unknown as { ACTION_COMPILER?: { endpoint?: string; app?: string; posthogKey?: string; posthogHost?: string } })
+    .ACTION_COMPILER ?? {};
 const ENDPOINT = config.endpoint ?? "/api/observe";
 const APP = config.app ?? "unknown-app";
 const INSTANCE = new URLSearchParams(location.search).get("instance") ?? "live";
+// PostHog is the eyes: with a project key configured, every recorded action is
+// also captured there, so the demonstrations live alongside ordinary analytics.
+const POSTHOG_KEY = config.posthogKey ?? null;
+const POSTHOG_HOST = config.posthogHost ?? "https://us.i.posthog.com";
 
 const sessionId =
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -92,6 +98,21 @@ function describeTarget(element: Element): { role: string; name: string } {
   return { role, name };
 }
 
+function postHogCapture(event: string, properties: Record<string, unknown>): void {
+  if (!POSTHOG_KEY) return;
+  void fetch(`${POSTHOG_HOST}/capture/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: POSTHOG_KEY,
+      event,
+      distinct_id: sessionId,
+      properties: { app: APP, instance: INSTANCE, ...properties },
+    }),
+    keepalive: true,
+  }).catch(() => undefined);
+}
+
 function post(payload: unknown): void {
   queue = queue
     .then(() =>
@@ -134,6 +155,15 @@ function record(kind: RecordedAction["kind"], element: Element, value?: string |
       after: after.page,
     };
     post(payload);
+    postHogCapture("action_compiler_step", {
+      seq: mySeq,
+      url: payload.url,
+      action_kind: action.kind,
+      target_role: action.target.role,
+      target_name: action.target.name,
+      affordances_before: before.page.affordances.length,
+      affordances_after: after.page.affordances.length,
+    });
   });
 }
 
@@ -171,6 +201,7 @@ document.addEventListener(
 
 function end(status: "completed" | "abandoned"): void {
   post({ app: APP, instance: INSTANCE, sessionId, end: true, status, at: new Date().toISOString() });
+  postHogCapture("action_compiler_session_end", { status, steps: seq });
 }
 
 window.addEventListener("pagehide", () => end("abandoned"));

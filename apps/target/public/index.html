@@ -10,9 +10,12 @@
 <div id="root" aria-busy="true"></div>
 <script>
   // Where the Action Compiler recorder ships trajectories. The widget key scopes the project.
+  // Optional: set posthogKey (and posthogHost) to also capture every recorded
+  // action to PostHog alongside the app's ordinary analytics.
   window.ACTION_COMPILER = {
     endpoint: (window.AC_ENDPOINT || "http://localhost:3200") + "/api/observe",
     app: "meridian-admin",
+    posthogKey: window.AC_POSTHOG_KEY || null,
   };
 </script>
 <script src="/widget/recorder.js"></script>

@@ -20,6 +20,13 @@ An agent then does in one call what took a blind screenshot-and-click agent
 **a compiled tool ships only after it is proven equivalent to held-out human
 demonstrations, state diff by state diff.**
 
+Built at the **Codex Community Hackathon SF** (hosted by **PostHog**, organized
+by **Tenor** and **Runloop**) and built *on* the sponsors: PostHog-style session
+capture is the input (the recorder also emits every step to PostHog when a
+project key is configured), compilation runs as real agent sessions in isolated
+**Runloop devboxes** through **Reflex**, and outcomes are scored the **Tenor**
+way — business value per unit of AI spent.
+
 Built in one day at the Codex Community Hackathon SF on top of
 [Patchlet](https://github.com/AadiDahake/patchlet) — the support widget whose
 affordance scanner turned out to be the missing instrument: a structured
@@ -91,7 +98,11 @@ dims); without it the same OpenAI-shaped calls fall back to
 
 - **PostHog** — the eyes. The recorder is PostHog-shaped session capture with
   one addition: structured affordance maps around every event, which is what
-  makes behaviour compilable rather than merely replayable.
+  makes behaviour compilable rather than merely replayable. Set `posthogKey`
+  in the embed config (`window.ACTION_COMPILER`) and every recorded action and
+  session end is also captured to PostHog (`action_compiler_step` /
+  `action_compiler_session_end`), so the demonstrations live alongside the
+  product's ordinary analytics.
 - **Runloop / Reflex** — the laboratory, for real. With `RUNLOOP_API_KEY` (an
   `rfx_` Reflex key) set, every compile adds a third lineage: an actual coding
   agent launched in an isolated Runloop devbox through the Reflex API
@@ -119,6 +130,14 @@ dims); without it the same OpenAI-shaped calls fall back to
 - `services/worker` — deleted (replaced by the compile lineages), except
   `steps/github.py`.
 - The original Patchlet README lives on at `docs/PATCHLET.md`.
+
+## Credits
+
+- [@AadiDahake](https://github.com/AadiDahake) — author of
+  [Patchlet](https://github.com/AadiDahake/patchlet), whose affordance scanner,
+  shared types, and plan validator this product is built from, and contributor
+  to Action Compiler.
+- [@MaranZeal678](https://github.com/MaranZeal678) — Action Compiler.
 
 ## Research this stands on
 
