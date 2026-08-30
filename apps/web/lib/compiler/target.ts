@@ -51,6 +51,26 @@ export async function targetHealthy(): Promise<boolean> {
   }
 }
 
+/**
+ * The target's API mount point, advertised by its /health endpoint — so the
+ * compiler stays target-agnostic instead of assuming one app's URL shape.
+ */
+let cachedApiBase: { origin: string; base: string } | null = null;
+
+async function apiBase(): Promise<string> {
+  const origin = targetOrigin();
+  if (cachedApiBase && cachedApiBase.origin === origin) return cachedApiBase.base;
+  let base = "/api/shop";
+  try {
+    const health = await json<{ apiBase?: string }>(`${origin}/health`);
+    if (typeof health.apiBase === "string" && health.apiBase.startsWith("/")) base = health.apiBase;
+  } catch {
+    /* offline target reports itself elsewhere */
+  }
+  cachedApiBase = { origin, base };
+  return base;
+}
+
 export type ToolApi = {
   get: (path: string) => Promise<unknown>;
   call: (template: string, params: Record<string, unknown>, body?: unknown) => Promise<unknown>;
@@ -63,14 +83,14 @@ export type ToolApi = {
  */
 export function toolApi(instance: string, allowedTemplates: readonly string[], sessionId?: string): ToolApi {
   const allowed = new Set(allowedTemplates);
-  const base = `${targetOrigin()}/api/shop/${instance}`;
+  const base = async () => `${targetOrigin()}${await apiBase()}/${instance}`;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (sessionId) headers["X-Session-Id"] = sessionId;
 
   return {
     async get(path: string): Promise<unknown> {
       if (!path.startsWith("/")) throw new Error(`api.get path must start with /: ${path}`);
-      return json(`${base}${path}`, { headers });
+      return json(`${await base()}${path}`, { headers });
     },
     async call(template: string, params: Record<string, unknown>, body?: unknown): Promise<unknown> {
       if (!allowed.has(template)) {
@@ -82,7 +102,7 @@ export function toolApi(instance: string, allowedTemplates: readonly string[], s
         if (value === undefined || value === null) throw new Error(`Missing path parameter {${name}}`);
         return encodeURIComponent(String(value));
       });
-      return json(`${base}${path}`, {
+      return json(`${await base()}${path}`, {
         method,
         headers,
         body: body === undefined ? undefined : JSON.stringify(body),

@@ -1,0 +1,144 @@
+[
+ {
+  "id": "tool-book_stay-api",
+  "workflowId": "wf-book_stay",
+  "name": "book_stay",
+  "strategy": "api",
+  "code": "export async function run(api, params) {\n  const { stay_id, room, checkin, checkout, guest_name, guest_email, notes } = params;\n  const body = { room, checkin, checkout, guest_name, guest_email, notes };\n  const pathParams = { stay_id };\n\n  try {\n    await api.call(\"POST /stays/{stay_id}/book\", pathParams, body);\n    return { success: true, stay_id, room, checkin, checkout, guest_name, guest_email };\n  } catch (error) {\n    throw new Error(`Failed to book stay: ${error.message}`);\n  }\n}",
+  "validation": {
+   "ok": true,
+   "checks": [
+    {
+     "name": "size",
+     "ok": true,
+     "detail": "12 lines (limit 120)"
+    },
+    {
+     "name": "sandbox",
+     "ok": true,
+     "detail": "no imports, no fetch, no process access"
+    },
+    {
+     "name": "entrypoint",
+     "ok": true,
+     "detail": "export async function run(api, params)"
+    },
+    {
+     "name": "endpoints",
+     "ok": true,
+     "detail": "all mutations demonstrated by users: POST /stays/{stay_id}/book"
+    },
+    {
+     "name": "static-endpoints",
+     "ok": true,
+     "detail": "every endpoint is a string literal"
+    }
+   ]
+  },
+  "smoke": {
+   "ok": true,
+   "ms": 10
+  },
+  "status": "proven",
+  "runtime": "2404ms",
+  "sandbox": "local sandbox",
+  "createdAt": "2026-08-30T00:21:13.204Z"
+ },
+ {
+  "id": "tool-book_stay-hybrid",
+  "workflowId": "wf-book_stay",
+  "name": "book_stay",
+  "strategy": "hybrid",
+  "code": "export async function run(api, params) {\n  const { stay_id, room, checkin, checkout, guest_name, guest_email, notes } = params;\n\n  // Validate room exists for the stay\n  const stayRes = await api.get(`/stays/${stay_id}`);\n  const roomExists = stayRes.stay.rooms.some(r => r.code === room);\n  if (!roomExists) {\n    throw new Error(`Room type '${room}' does not exist for stay '${stay_id}'`);\n  }\n\n  // Perform booking\n  const body = { room, checkin, checkout, guest_name, guest_email, notes };\n  const res = await api.call(\"POST /stays/{stay_id}/book\", { stay_id }, body);\n\n  // Confirm booking\n  const confirmRes = await api.get(`/stays/${stay_id}`);\n  const booking = confirmRes.stay.bookings.find(b =>\n    b.guest_email === guest_email &&\n    b.checkin === checkin &&\n    b.checkout === checkout\n  );\n\n  if (!booking) {\n    throw new Error(\"Booking confirmation failed - booking not found\");\n  }\n\n  return {\n    bookingId: booking.id,\n    stayId: stay_id,\n    room,\n    checkin,\n    checkout,\n    guestName: guest_name,\n    guestEmail: guest_email,\n    notes\n  };\n}",
+  "validation": {
+   "ok": true,
+   "checks": [
+    {
+     "name": "size",
+     "ok": true,
+     "detail": "37 lines (limit 120)"
+    },
+    {
+     "name": "sandbox",
+     "ok": true,
+     "detail": "no imports, no fetch, no process access"
+    },
+    {
+     "name": "entrypoint",
+     "ok": true,
+     "detail": "export async function run(api, params)"
+    },
+    {
+     "name": "endpoints",
+     "ok": true,
+     "detail": "all mutations demonstrated by users: POST /stays/{stay_id}/book"
+    },
+    {
+     "name": "static-endpoints",
+     "ok": true,
+     "detail": "every endpoint is a string literal"
+    }
+   ]
+  },
+  "smoke": {
+   "ok": false,
+   "ms": 7,
+   "error": "Cannot read properties of undefined (reading 'find')"
+  },
+  "status": "rejected",
+  "runtime": "5494ms",
+  "sandbox": "local sandbox",
+  "createdAt": "2026-08-30T00:21:16.294Z"
+ },
+ {
+  "id": "tool-book_stay-reflex",
+  "workflowId": "wf-book_stay",
+  "name": "book_stay",
+  "strategy": "reflex",
+  "code": "export async function run(api, params) {\n  params = params || {};\n  const required = [\"stay_id\", \"room\", \"checkin\", \"checkout\", \"guest_name\", \"guest_email\"];\n  for (const k of required) {\n    if (!params[k]) throw new Error(\"Missing required parameter: \" + k);\n  }\n  const { stay_id, room, checkin, checkout, guest_name, guest_email, notes } = params;\n\n  let stay;\n  try {\n    const res = await api.get(\"/stays/\" + stay_id);\n    stay = res && res.stay;\n  } catch (e) {\n    throw new Error(\"Could not load stay '\" + stay_id + \"': \" + (e && e.message ? e.message : String(e)));\n  }\n  if (!stay) {\n    throw new Error(\"Stay '\" + stay_id + \"' was not found\");\n  }\n\n  const validRoom = Array.isArray(stay.rooms) && stay.rooms.some((r) => r.code === room);\n  if (!validRoom) {\n    throw new Error(\"Room code '\" + room + \"' is not offered at stay '\" + stay_id + \"'\");\n  }\n\n  const body = { room, checkin, checkout, guest_name, guest_email };\n  if (notes) body.notes = String(notes);\n\n  let booking;\n  try {\n    booking = await api.call(\"POST /stays/{stay_id}/book\", { stay_id }, body);\n  } catch (e) {\n    throw new Error(\"Booking rejected for stay '\" + stay_id + \"': \" + (e && e.message ? e.message : String(e)));\n  }\n\n  return {\n    action: \"book_stay\",\n    stay_id,\n    stay_name: stay.name,\n    room,\n    checkin,\n    checkout,\n    guest_name,\n    guest_email,\n    booking,\n  };\n}",
+  "validation": {
+   "ok": true,
+   "checks": [
+    {
+     "name": "reflex-session",
+     "ok": true,
+     "detail": "opencode wrote the module in devbox session agt_6OvmXQqtxs8ePZSJFYRNJV"
+    },
+    {
+     "name": "size",
+     "ok": true,
+     "detail": "46 lines (limit 120)"
+    },
+    {
+     "name": "sandbox",
+     "ok": true,
+     "detail": "no imports, no fetch, no process access"
+    },
+    {
+     "name": "entrypoint",
+     "ok": true,
+     "detail": "export async function run(api, params)"
+    },
+    {
+     "name": "endpoints",
+     "ok": true,
+     "detail": "all mutations demonstrated by users: POST /stays/{stay_id}/book"
+    },
+    {
+     "name": "static-endpoints",
+     "ok": true,
+     "detail": "every endpoint is a string literal"
+    }
+   ]
+  },
+  "smoke": {
+   "ok": true,
+   "ms": 8
+  },
+  "status": "validated",
+  "runtime": "22503ms",
+  "sandbox": "reflex devbox · opencode",
+  "createdAt": "2026-08-30T00:21:16.294Z",
+  "sessionUrl": "https://reflex.runloop.ai/orgs/doing-something/agents/agt_6OvmXQqtxs8ePZSJFYRNJV"
+ }
+]

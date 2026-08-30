@@ -1,0 +1,118 @@
+[
+ {
+  "id": "proof-tool-book_stay-api-mtf2dfhq",
+  "toolId": "tool-book_stay-api",
+  "cases": [
+   {
+    "sessionId": "ccef77dc-df7e-4187-b727-2d5eea2e5f8f",
+    "params": {
+     "stay_id": "WC-COVE",
+     "room": "DLX",
+     "checkin": "2026-10-05",
+     "checkout": "2026-10-08",
+     "guest_name": "Rosa Delgado",
+     "guest_email": "rosa.delgado@example.com"
+    },
+    "match": true,
+    "note": "state transition identical across 9 changed fields",
+    "humanTransition": [
+     "booking.checkin: ∅ -> 2026-10-05",
+     "booking.checkout: ∅ -> 2026-10-08",
+     "booking.guestEmail: ∅ -> rosa.delgado@example.com",
+     "booking.guestName: ∅ -> Rosa Delgado",
+     "booking.nights: ∅ -> 3",
+     "booking.room: ∅ -> DLX",
+     "booking.status: ∅ -> confirmed",
+     "booking.stayId: ∅ -> WC-COVE",
+     "booking.totalCents: ∅ -> 79200"
+    ],
+    "toolTransition": [
+     "booking.checkin: ∅ -> 2026-10-05",
+     "booking.checkout: ∅ -> 2026-10-08",
+     "booking.guestEmail: ∅ -> rosa.delgado@example.com",
+     "booking.guestName: ∅ -> Rosa Delgado",
+     "booking.nights: ∅ -> 3",
+     "booking.room: ∅ -> DLX",
+     "booking.status: ∅ -> confirmed",
+     "booking.stayId: ∅ -> WC-COVE",
+     "booking.totalCents: ∅ -> 79200"
+    ]
+   },
+   {
+    "sessionId": "f2903622-6dc9-40ed-88f0-4deda47d106b",
+    "params": {
+     "stay_id": "WC-PIER",
+     "room": "STD",
+     "checkin": "2026-10-18",
+     "checkout": "2026-10-20",
+     "guest_name": "Kofi Mensah",
+     "guest_email": "kofi.mensah@example.com"
+    },
+    "match": true,
+    "note": "state transition identical across 9 changed fields",
+    "humanTransition": [
+     "booking.checkin: ∅ -> 2026-10-18",
+     "booking.checkout: ∅ -> 2026-10-20",
+     "booking.guestEmail: ∅ -> kofi.mensah@example.com",
+     "booking.guestName: ∅ -> Kofi Mensah",
+     "booking.nights: ∅ -> 2",
+     "booking.room: ∅ -> STD",
+     "booking.status: ∅ -> confirmed",
+     "booking.stayId: ∅ -> WC-PIER",
+     "booking.totalCents: ∅ -> 37800"
+    ],
+    "toolTransition": [
+     "booking.checkin: ∅ -> 2026-10-18",
+     "booking.checkout: ∅ -> 2026-10-20",
+     "booking.guestEmail: ∅ -> kofi.mensah@example.com",
+     "booking.guestName: ∅ -> Kofi Mensah",
+     "booking.nights: ∅ -> 2",
+     "booking.room: ∅ -> STD",
+     "booking.status: ∅ -> confirmed",
+     "booking.stayId: ∅ -> WC-PIER",
+     "booking.totalCents: ∅ -> 37800"
+    ]
+   },
+   {
+    "sessionId": "a5779e34-280a-4202-a63b-47ceb629819d",
+    "params": {
+     "stay_id": "WC-HARBOR",
+     "room": "DLX",
+     "checkin": "2026-10-20",
+     "checkout": "2026-10-22",
+     "guest_name": "Danny O'Shea",
+     "guest_email": "danny.oshea@example.com",
+     "notes": "anniversary trip"
+    },
+    "match": true,
+    "note": "state transition identical across 10 changed fields",
+    "humanTransition": [
+     "booking.checkin: ∅ -> 2026-10-20",
+     "booking.checkout: ∅ -> 2026-10-22",
+     "booking.guestEmail: ∅ -> danny.oshea@example.com",
+     "booking.guestName: ∅ -> Danny O'Shea",
+     "booking.nights: ∅ -> 2",
+     "booking.notes: ∅ -> anniversary trip",
+     "booking.room: ∅ -> DLX",
+     "booking.status: ∅ -> confirmed",
+     "booking.stayId: ∅ -> WC-HARBOR",
+     "booking.totalCents: ∅ -> 52800"
+    ],
+    "toolTransition": [
+     "booking.checkin: ∅ -> 2026-10-20",
+     "booking.checkout: ∅ -> 2026-10-22",
+     "booking.guestEmail: ∅ -> danny.oshea@example.com",
+     "booking.guestName: ∅ -> Danny O'Shea",
+     "booking.nights: ∅ -> 2",
+     "booking.notes: ∅ -> anniversary trip",
+     "booking.room: ∅ -> DLX",
+     "booking.status: ∅ -> confirmed",
+     "booking.stayId: ∅ -> WC-HARBOR",
+     "booking.totalCents: ∅ -> 52800"
+    ]
+   }
+  ],
+  "ok": true,
+  "createdAt": "2026-08-30T00:21:16.334Z"
+ }
+]

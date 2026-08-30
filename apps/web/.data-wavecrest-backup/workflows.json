@@ -1,0 +1,299 @@
+[
+ {
+  "id": "wf-book_stay",
+  "name": "book_stay",
+  "description": "Create a new booking for a stay by specifying room, dates, guest details, and special requests.",
+  "params": [
+   {
+    "name": "stay_id",
+    "type": "string",
+    "description": "The unique identifier of the stay/property being booked.",
+    "source": "param:stay_id",
+    "required": true
+   },
+   {
+    "name": "room",
+    "type": "string",
+    "description": "The room type code for the booking (e.g., STD, STE).",
+    "source": "body:room",
+    "required": true
+   },
+   {
+    "name": "checkin",
+    "type": "string",
+    "description": "The check-in date for the stay in YYYY-MM-DD format.",
+    "source": "body:checkin",
+    "required": true
+   },
+   {
+    "name": "checkout",
+    "type": "string",
+    "description": "The check-out date for the stay in YYYY-MM-DD format.",
+    "source": "body:checkout",
+    "required": true
+   },
+   {
+    "name": "guest_name",
+    "type": "string",
+    "description": "The full name of the guest making the booking.",
+    "source": "body:guest_name",
+    "required": true
+   },
+   {
+    "name": "guest_email",
+    "type": "string",
+    "description": "The email address of the guest for confirmation and contact.",
+    "source": "body:guest_email",
+    "required": true
+   },
+   {
+    "name": "notes",
+    "type": "string",
+    "description": "Special requests or additional notes for the booking.",
+    "source": "body:notes",
+    "required": false
+   }
+  ],
+  "signature": [
+   "POST /stays/{stay_id}/book"
+  ],
+  "endpoints": [
+   "POST /stays/{stay_id}/book"
+  ],
+  "observed": 50,
+  "succeeded": 50,
+  "successRate": 1,
+  "medianSteps": 8,
+  "sessionIds": [
+   "fa5b2862-4a3e-41ed-a711-0a7f5e00e80f",
+   "609f9f46-9ceb-42a6-a4aa-1dc720fc8f36",
+   "0e519add-234a-427c-b1fc-0d0e896edf90",
+   "253830a8-a486-4e82-ab96-ebd192bd13ea",
+   "905c47af-313c-41ea-a4a4-07995862cc93",
+   "c6ae5733-8fff-4430-99d9-e6edd091cba1",
+   "08139ab0-2eb2-45fd-a50a-476e60dc818d",
+   "df27d968-4ebe-4ee2-b104-23a791ed7503",
+   "56a01a6b-3459-4f2d-adf1-236d3df717d8",
+   "b5d93eba-ec13-4ced-b99e-dca36aa64e92",
+   "fb64b6c9-5d6f-431b-b7c5-bdd654f76983",
+   "0b565a4a-34e2-4b36-a447-efd09a5ff15c",
+   "eac0f9a8-792b-4287-bf40-da67fba63672",
+   "4e3218f9-6dd8-48f3-bfa9-a6f80122d743",
+   "55bb51eb-a4cb-4c4c-a722-7986f7f487f3",
+   "5f671d60-310c-40f2-aae2-00209d885b63",
+   "81c2cade-05af-4360-ac27-856b8db57e86",
+   "af9aaa80-ad0a-4352-b18d-8ce32203e3ed",
+   "adc5640b-25fd-4321-b227-508ead47b896",
+   "58c13ef3-1e39-4d51-b540-51ee6c01fee2",
+   "19cc1001-a954-4b9a-8012-98c45202e95f",
+   "a27e9850-9c5f-4a80-bce5-c9bf1edfe0dc",
+   "328b8a7b-32f0-45c3-ae73-f60da495177c",
+   "70745515-4adf-4f0c-8ce4-c1d64d3ddbc8",
+   "b4aaf111-7e69-432f-85fa-87f09d3d29e7",
+   "f6bfd3e5-fed1-4714-af0b-1b1d34a5b27c",
+   "d0818443-7f39-4aae-a79e-87739157b716",
+   "0b03c519-1d73-4fe2-9264-6ed50aff86a6",
+   "26e0ee5e-891b-4876-9e15-5144a8e22e58",
+   "76151680-0cdb-4cea-8866-629cc53c0301",
+   "247bcbdf-024b-4d88-a7bc-67ab8370b860",
+   "d306ab89-2851-4139-a9b5-0e7f0107d123",
+   "dab7e9e9-dea9-4578-b298-5962d7ceb509",
+   "65624a61-b81a-4a59-85b2-d4a687318cfe",
+   "9faf62d9-33e8-443c-95e6-a064be90cce8",
+   "15927c0e-8697-4b40-8a48-ec7ca14edc56",
+   "b1b1ddce-d5d0-4212-b42d-5524419c94d4",
+   "16fbd513-c748-456d-8852-4f22f334ff80",
+   "f34bfe94-b0c1-4905-99e7-b2669cdddbb7",
+   "8893351e-956e-47fb-bd89-301dbb6a3a41",
+   "cfaa8a00-d6fb-432d-b93b-6b78acdf4f0d",
+   "d9c59ba2-49ff-416a-8a04-94ec07114088",
+   "a02f13fc-491c-413a-91a7-cef533b0c842",
+   "935f99a5-18f7-4261-8304-6ab1ac923fa1",
+   "bf10ad93-9bd5-421e-ba93-b74dcb2c5f5b",
+   "25873a8f-9d3c-4a88-b3ea-c4213cc0989b",
+   "88c76522-8ce4-4331-adec-4784688ad640"
+  ],
+  "heldOutSessionIds": [
+   "ccef77dc-df7e-4187-b727-2d5eea2e5f8f",
+   "f2903622-6dc9-40ed-88f0-4deda47d106b",
+   "a5779e34-280a-4202-a63b-47ceb629819d"
+  ],
+  "probe": {
+   "ok": true,
+   "evidence": [
+    {
+     "name": "Room type",
+     "role": "combobox",
+     "seen": 50
+    },
+    {
+     "name": "Check-in date",
+     "role": "textbox",
+     "seen": 50
+    },
+    {
+     "name": "Check-out date",
+     "role": "textbox",
+     "seen": 50
+    },
+    {
+     "name": "Guest full name",
+     "role": "textbox",
+     "seen": 50
+    },
+    {
+     "name": "Guest email address",
+     "role": "textbox",
+     "seen": 50
+    },
+    {
+     "name": "Confirm booking",
+     "role": "button",
+     "seen": 50
+    },
+    {
+     "name": "Special requests",
+     "role": "textbox",
+     "seen": 31
+    },
+    {
+     "name": "Search stays",
+     "role": "searchbox",
+     "seen": 20
+    },
+    {
+     "name": "Smuggler's Cove Bungalow",
+     "role": "link",
+     "seen": 11
+    },
+    {
+     "name": "Harbor Loft",
+     "role": "link",
+     "seen": 9
+    }
+   ]
+  },
+  "createdAt": "2026-08-30T00:21:09.691Z"
+ },
+ {
+  "id": "wf-cancel_booking",
+  "name": "cancel_booking",
+  "description": "Cancel an existing booking with a provided reason.",
+  "params": [
+   {
+    "name": "booking_id",
+    "type": "string",
+    "description": "The unique identifier of the booking to be cancelled.",
+    "source": "param:booking_id",
+    "required": true
+   },
+   {
+    "name": "reason",
+    "type": "string",
+    "description": "The reason provided for cancelling the booking.",
+    "source": "body:reason",
+    "required": true
+   }
+  ],
+  "signature": [
+   "POST /bookings/{booking_id}/cancel"
+  ],
+  "endpoints": [
+   "POST /bookings/{booking_id}/cancel"
+  ],
+  "observed": 30,
+  "succeeded": 30,
+  "successRate": 1,
+  "medianSteps": 5,
+  "sessionIds": [
+   "653f58d1-61a5-4880-a78e-48486bd73523",
+   "c9bff750-d1a0-4b51-86b7-23074b420e10",
+   "bbb09cfc-bae7-4f42-bd8a-551cc7121f41",
+   "93b7c4cc-397b-4f79-890d-dbc1ddc6a579",
+   "5d86fcb4-61e8-4a64-9f92-e812272fdd45",
+   "175146e4-bdd9-436c-9728-0d24b7c56f1f",
+   "13835652-e083-4ab0-8d36-ed5bc8faf2f6",
+   "6c7e05ef-4b0f-41f2-a0b3-b89d5b6f2b24",
+   "85b5321d-fda0-4860-ae41-40f1153fc633",
+   "8e3eaeb3-22f8-4862-b9c2-84a24ffbe1f5",
+   "617e2f44-b0e5-4727-b21f-730e0a441fd8",
+   "6becd4cc-90e5-47bf-bba6-4b32892a6249",
+   "bb4a32ab-201c-4e0b-840e-ba67b72f1f22",
+   "ade4960c-9167-49f8-9c84-f0d80a35d3aa",
+   "419fe47e-26b4-4a66-8096-69623544b910",
+   "04d0c510-ed18-45a9-b5b0-60a2f6516e5c",
+   "9bd3b97c-bddc-4a22-bfc9-33244de94751",
+   "5076d3b1-af5c-48e1-953c-e9eaa100a5c9",
+   "680e0c93-f6d6-45bd-9bfa-0623edfda799",
+   "d416554b-3bd4-495a-bba1-9932ea45bd4e",
+   "a59e53d9-57bd-47a9-aea3-52819ac0ce24",
+   "d38e56e2-7b29-455e-8ca1-ae9fcbb1c453",
+   "52265924-1db8-402c-8c9c-8a132bb2951c",
+   "e7bb3070-1db8-4cf7-a85e-e522195776d3",
+   "54a6c0ba-51bc-430d-ad59-87f46c2c9539",
+   "d756e521-ba9d-449f-b161-222a57695d01",
+   "6cbe3b23-29f7-4bc9-83b1-36cce970a397"
+  ],
+  "heldOutSessionIds": [
+   "87ca49ef-c62e-4bd6-9000-eff4ea04df97",
+   "afbef11c-4726-4071-be9b-64380280b0b2",
+   "69ff823d-8199-4c00-a184-1540c0183fdb"
+  ],
+  "probe": {
+   "ok": true,
+   "evidence": [
+    {
+     "name": "My bookings",
+     "role": "link",
+     "seen": 30
+    },
+    {
+     "name": "Cancel booking…",
+     "role": "button",
+     "seen": 30
+    },
+    {
+     "name": "Cancellation reason",
+     "role": "textbox",
+     "seen": 30
+    },
+    {
+     "name": "Confirm cancellation",
+     "role": "button",
+     "seen": 30
+    },
+    {
+     "name": "Search bookings",
+     "role": "searchbox",
+     "seen": 10
+    },
+    {
+     "name": "BK-2060",
+     "role": "link",
+     "seen": 1
+    },
+    {
+     "name": "BK-2078",
+     "role": "link",
+     "seen": 1
+    },
+    {
+     "name": "BK-2052",
+     "role": "link",
+     "seen": 1
+    },
+    {
+     "name": "BK-2069",
+     "role": "link",
+     "seen": 1
+    },
+    {
+     "name": "BK-2043",
+     "role": "link",
+     "seen": 1
+    }
+   ]
+  },
+  "createdAt": "2026-08-30T00:21:10.757Z"
+ }
+]

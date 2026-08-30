@@ -47,7 +47,7 @@ app.post("/compiler/reset", (_req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/health", (_req, res) => res.json({ ok: true, service: "meridian-target" }));
+app.get("/health", (_req, res) => res.json({ ok: true, service: "meridian-target", apiBase: "/api/shop" }));
 
 /* ---- Static: the SPA and the recorder bundle ---- */
 
