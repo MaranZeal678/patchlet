@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * The Action Compiler console — the whole pitch on one page, top to bottom:
+ * The Patchlet console — the whole pitch on one page, top to bottom:
  * watch sessions converge, discover the workflow, compile it, prove it
  * equivalent, then race a blind UI agent against the compiled tool.
  */
@@ -136,7 +136,7 @@ export default function CompilerConsole() {
       <header className="border-b border-zinc-800 px-8 py-5 flex items-center gap-6 sticky top-0 bg-zinc-950/95 backdrop-blur z-10">
         <div>
           <div className="text-lg font-bold tracking-tight">
-            ACTION<span className="text-emerald-400">COMPILER</span>
+            PATCH<span className="text-emerald-400">LET</span>
           </div>
           <div className="text-[11px] text-zinc-500">humans demonstrate · we compile · agents call</div>
         </div>
@@ -391,7 +391,7 @@ export default function CompilerConsole() {
             <span className="text-zinc-700">·</span>
             <a href="https://openai.com/codex" className="font-bold text-indigo-400 hover:text-indigo-300">⌘ OpenAI Codex</a>
           </div>
-          Built on Patchlet&apos;s affordance scanner: the recorder publishes the same structured page state the widget used for guidance.
+          Patchlet&apos;s affordance scanner, pointed backwards: the recorder publishes the same structured page state the widget once used for guidance.
           PostHog-shaped session capture · compiled in parallel lineages, Reflex-style isolated sandboxes · outcomes priced the Tenor way ·
           every compiled tool is proven equivalent to held-out human demonstrations before it ships.
         </footer>

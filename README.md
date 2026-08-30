@@ -1,4 +1,4 @@
-# Action Compiler
+# Patchlet
 
 <p align="center">
   <a href="https://reflex.runloop.ai"><img src="https://img.shields.io/badge/⟳%20RUNLOOP-Reflex%20devboxes%20compile%20the%20tools-1E7A5A?style=for-the-badge" alt="Runloop"></a>
@@ -6,13 +6,13 @@
   <a href="https://openai.com/codex"><img src="https://img.shields.io/badge/OpenAI%20Codex-writes%20the%20semantic%20actions-412991?style=for-the-badge&logo=openai&logoColor=white" alt="OpenAI Codex"></a>
 </p>
 
-**Powered by [Runloop/Reflex](https://reflex.runloop.ai) · [PostHog](https://posthog.com) · [OpenAI Codex](https://openai.com/codex)** — see [Integration proof](#integration-proof) below.
+**Patchlet watches how real people use software and compiles their behaviour into semantic actions AI agents can call.** Powered by [Runloop/Reflex](https://reflex.runloop.ai) · [PostHog](https://posthog.com) · [OpenAI Codex](https://openai.com/codex)** — see [Integration proof](#integration-proof) below.
 
 **PostHog records what humans do. We turn those actions into tools agents can call.**
 
 Your users demonstrate your app's real API every single day — and everyone throws
-that away as telemetry. Action Compiler watches how real people use software and
-compiles their behaviour into semantic actions AI agents can call.
+that away as telemetry. Patchlet started life as a support widget that guided users around the page.
+Pointed backwards, the same instrument records them — and compiles what it sees.
 
 A human doing a refund takes 14 clicks: find the customer, open orders, open the
 order, click refund, pick items, type a reason, confirm, check the payment, update
@@ -144,8 +144,8 @@ dims); without it the same OpenAI-shaped calls fall back to
 - [@AadiDahake](https://github.com/AadiDahake) — author of
   [Patchlet](https://github.com/AadiDahake/patchlet), whose affordance scanner,
   shared types, and plan validator this product is built from, and contributor
-  to Action Compiler.
-- [@MaranZeal678](https://github.com/MaranZeal678) — Action Compiler.
+  to Patchlet.
+- [@MaranZeal678](https://github.com/MaranZeal678) — Patchlet.
 
 
 ## Integration proof
