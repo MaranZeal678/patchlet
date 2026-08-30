@@ -381,6 +381,16 @@ export default function CompilerConsole() {
         )}
 
         <footer className="border-t border-zinc-900 pt-6 pb-16 text-xs text-zinc-600 leading-relaxed">
+          <div className="mb-4 flex items-center gap-4 text-[13px]">
+            <span className="text-[10px] tracking-[.25em] text-zinc-500">POWERED BY</span>
+            <a href="https://reflex.runloop.ai" className="font-extrabold tracking-wide text-emerald-500 hover:text-emerald-400">⟳ RUNLOOP</a>
+            <span className="text-zinc-700">·</span>
+            <a href="https://posthog.com" className="font-bold text-zinc-300 hover:text-white">
+              <span className="bg-gradient-to-r from-blue-500 via-orange-500 to-yellow-400 bg-clip-text text-transparent">▰▰▰</span> PostHog
+            </a>
+            <span className="text-zinc-700">·</span>
+            <a href="https://openai.com/codex" className="font-bold text-indigo-400 hover:text-indigo-300">⌘ OpenAI Codex</a>
+          </div>
           Built on Patchlet&apos;s affordance scanner: the recorder publishes the same structured page state the widget used for guidance.
           PostHog-shaped session capture · compiled in parallel lineages, Reflex-style isolated sandboxes · outcomes priced the Tenor way ·
           every compiled tool is proven equivalent to held-out human demonstrations before it ships.

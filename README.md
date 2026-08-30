@@ -1,5 +1,13 @@
 # Action Compiler
 
+<p align="center">
+  <a href="https://reflex.runloop.ai"><img src="https://img.shields.io/badge/⟳%20RUNLOOP-Reflex%20devboxes%20compile%20the%20tools-1E7A5A?style=for-the-badge" alt="Runloop"></a>
+  <a href="https://posthog.com"><img src="https://img.shields.io/badge/PostHog-session%20capture%20is%20the%20input-F54E00?style=for-the-badge&logo=posthog&logoColor=white" alt="PostHog"></a>
+  <a href="https://openai.com/codex"><img src="https://img.shields.io/badge/OpenAI%20Codex-writes%20the%20semantic%20actions-412991?style=for-the-badge&logo=openai&logoColor=white" alt="OpenAI Codex"></a>
+</p>
+
+**Powered by [Runloop/Reflex](https://reflex.runloop.ai) · [PostHog](https://posthog.com) · [OpenAI Codex](https://openai.com/codex)** — see [Integration proof](#integration-proof) below.
+
 **PostHog records what humans do. We turn those actions into tools agents can call.**
 
 Your users demonstrate your app's real API every single day — and everyone throws
@@ -138,6 +146,15 @@ dims); without it the same OpenAI-shaped calls fall back to
   shared types, and plan validator this product is built from, and contributor
   to Action Compiler.
 - [@MaranZeal678](https://github.com/MaranZeal678) — Action Compiler.
+
+
+## Integration proof
+
+| Tool | Where it lives in this repo | What it does |
+| --- | --- | --- |
+| **Runloop / Reflex** | [`apps/web/lib/compiler/reflex.ts`](apps/web/lib/compiler/reflex.ts) | Every compile launches a coding agent in an isolated Runloop devbox via the Reflex API (`POST /api/agents`); console lineage cards link to the live session |
+| **PostHog** | [`packages/widget/src/recorder/index.ts`](packages/widget/src/recorder/index.ts) (`postHogCapture`) | The recorder captures `action_compiler_step` / `action_compiler_session_end` to PostHog's capture API whenever `posthogKey` is configured |
+| **OpenAI Codex** | [`apps/web/lib/openai.ts`](apps/web/lib/openai.ts) (`codeModel()`), `pickAgentType()` in `reflex.ts` | One OpenAI-shaped model surface; codegen prefers Codex (`gpt-5.1-codex`) and the Reflex lineage launches `codex` sessions when the org has OpenAI credentials — and Codex built most of this repo at the hackathon |
 
 ## Research this stands on
 
