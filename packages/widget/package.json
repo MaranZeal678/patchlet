@@ -2,6 +2,12 @@
   "name": "@patchlet/widget",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
+  "author": "Elamaran Elangovan",
+  "contributors": [
+    "Elamaran Elangovan",
+    "Aadi Dahake"
+  ],
   "description": "Embeddable Patchlet support widget: chat, affordance scan and on-page guidance.",
   "type": "module",
   "files": [

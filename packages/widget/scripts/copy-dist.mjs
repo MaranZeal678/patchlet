@@ -1,3 +1,12 @@
+/*
+ * Patchlet
+ * Copyright (c) 2026 Elamaran Elangovan and Aadi Dahake. All rights reserved.
+ *
+ * Proprietary and confidential. Rights held solely by the copyright holders.
+ * No licence is granted to any other party. See LICENSE at the repository root.
+ * Ref: PTCH-CYEP-P7KH3E-BLOTE
+ */
+
 // Publishes the built bundle as the web app's /widget.js so the embed snippet
 // can point at the dashboard origin. Skipped when the web app is not present.
 import { copyFile, mkdir, stat } from 'node:fs/promises';

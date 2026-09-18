@@ -1,3 +1,12 @@
+/*
+ * Patchlet
+ * Copyright (c) 2026 Elamaran Elangovan and Aadi Dahake. All rights reserved.
+ *
+ * Proprietary and confidential. Rights held solely by the copyright holders.
+ * No licence is granted to any other party. See LICENSE at the repository root.
+ * Ref: PTCH-CYEP-P7KH3E-BLOTE
+ */
+
 /** The GitHub OAuth exchange, shared by the connect and callback routes. */
 import { githubOauthApp } from "@/lib/env";
 import type { GithubConnection } from "./connection";

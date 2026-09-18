@@ -1,3 +1,12 @@
+/*
+ * Patchlet
+ * Copyright (c) 2026 Elamaran Elangovan and Aadi Dahake. All rights reserved.
+ *
+ * Proprietary and confidential. Rights held solely by the copyright holders.
+ * No licence is granted to any other party. See LICENSE at the repository root.
+ * Ref: PTCH-CYEP-P7KH3E-BLOTE
+ */
+
 /** Starts the GitHub link: send the browser to GitHub with a signed state in a cookie. */
 import { NextResponse } from "next/server";
 import { githubOauthApp } from "@/lib/env";

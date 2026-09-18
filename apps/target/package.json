@@ -2,6 +2,12 @@
   "name": "@patchlet/target",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
+  "author": "Elamaran Elangovan",
+  "contributors": [
+    "Elamaran Elangovan",
+    "Aadi Dahake"
+  ],
   "type": "module",
   "description": "Meridian Supply — the demo commerce admin whose users unknowingly author its agent API. Serves the app, its real HTTP API, and the Action Compiler recorder widget.",
   "scripts": {

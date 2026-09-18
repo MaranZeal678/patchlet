@@ -1,3 +1,10 @@
+-- Patchlet
+-- Copyright (c) 2026 Elamaran Elangovan and Aadi Dahake. All rights reserved.
+--
+-- Proprietary and confidential. Rights held solely by the copyright holders.
+-- No licence is granted to any other party. See LICENSE at the repository root.
+-- Ref: PTCH-CYEP-P7KH3E-BLOTE
+
 -- The GitHub account a console user linked to the project.
 --
 -- github_token holds the OAuth access token encrypted at rest (AES-256-GCM, see

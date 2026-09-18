@@ -2,6 +2,12 @@
   "name": "@patchlet/shared",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
+  "author": "Elamaran Elangovan",
+  "contributors": [
+    "Elamaran Elangovan",
+    "Aadi Dahake"
+  ],
   "type": "module",
   "exports": {
     ".": "./src/index.ts"

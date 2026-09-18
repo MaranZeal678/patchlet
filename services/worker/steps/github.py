@@ -1,3 +1,10 @@
+# Patchlet
+# Copyright (c) 2026 Elamaran Elangovan and Aadi Dahake. All rights reserved.
+#
+# Proprietary and confidential. Rights held solely by the copyright holders.
+# No licence is granted to any other party. See LICENSE at the repository root.
+# Ref: PTCH-CYEP-P7KH3E-BLOTE
+
 """GitHub REST and GraphQL client used by the worker. One small method per API call."""
 
 from __future__ import annotations

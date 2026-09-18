@@ -1,0 +1,53 @@
+Patchlet
+Copyright (c) 2026 Elamaran Elangovan and Aadi Dahake. All rights reserved.
+
+PROPRIETARY AND CONFIDENTIAL — NO LICENCE IS GRANTED TO ANY OTHER PARTY
+
+This repository is published for the sole purposes of demonstration,
+evaluation, and portfolio review. Publication does not grant a licence.
+
+AUTHORISED PARTIES
+
+The only parties holding rights in this software are its copyright holders:
+
+  - Elamaran Elangovan
+  - Aadi Dahake
+
+They alone may use, copy, modify, build, deploy, distribute, and license this
+software, in whole or in part, for any purpose. No other person, company,
+organisation, or automated system holds any right in it.
+
+EVERYONE ELSE
+
+If you are not named above, you MAY:
+
+  - view and read this source code;
+  - fork it within GitHub solely as required to read it, as permitted by the
+    GitHub Terms of Service;
+  - cite or link to it with attribution to the copyright holders.
+
+If you are not named above, you MAY NOT, without prior written permission from
+both copyright holders:
+
+  - copy, reproduce, or redistribute any part of this software, in source or
+    binary form, in whole or in part;
+  - modify, adapt, translate, or create derivative works from it;
+  - build, deploy, host, or run it for any purpose other than local
+    evaluation of this repository as published;
+  - use it, or any portion of it, in any product, service, model training
+    corpus, dataset, or commercial offering;
+  - remove, alter, or obscure any copyright notice, licence notice, or
+    reference identifier contained in these files;
+  - sublicense, sell, rent, or otherwise transfer any rights in it.
+
+All rights not expressly granted above are reserved by the copyright holders.
+No rights are granted by implication, estoppel, or otherwise.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+DAMAGES, OR OTHER LIABILITY ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+For licensing enquiries: elango@squareshift.co
+
+Reference: PTCH-CYEP-P7KH3E-BLOTE

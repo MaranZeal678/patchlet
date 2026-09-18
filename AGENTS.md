@@ -3,6 +3,12 @@
 Guidance for anyone working in this repository, human or automated. Read `docs/contracts.md`
 before changing anything that crosses a boundary.
 
+This repository is proprietary — rights are held solely by Elamaran Elangovan and
+Aadi Dahake, and no licence is granted to anyone else (see `LICENSE`). Every
+source file opens with a copyright header carrying the reference identifier
+`PTCH-CYEP-P7KH3E-BLOTE`. Keep it: add the same header to every new source file,
+and never remove, reword or reformat an existing one.
+
 ## Layout
 
 | Path | Owns |

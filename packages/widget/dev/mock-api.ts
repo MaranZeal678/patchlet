@@ -1,3 +1,12 @@
+/*
+ * Patchlet
+ * Copyright (c) 2026 Elamaran Elangovan and Aadi Dahake. All rights reserved.
+ *
+ * Proprietary and confidential. Rights held solely by the copyright holders.
+ * No licence is granted to any other party. See LICENSE at the repository root.
+ * Ref: PTCH-CYEP-P7KH3E-BLOTE
+ */
+
 /**
  * Development stand-in for the Patchlet API. It implements the routes from the
  * HTTP contract with canned answers and realistic delays so the widget can be

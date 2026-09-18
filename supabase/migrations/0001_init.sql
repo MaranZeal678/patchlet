@@ -1,3 +1,10 @@
+-- Patchlet
+-- Copyright (c) 2026 Elamaran Elangovan and Aadi Dahake. All rights reserved.
+--
+-- Proprietary and confidential. Rights held solely by the copyright holders.
+-- No licence is granted to any other party. See LICENSE at the repository root.
+-- Ref: PTCH-CYEP-P7KH3E-BLOTE
+
 -- Initial schema. The project previously held an unused set of tables from an earlier attempt,
 -- so this drops those first and then builds the real schema. Safe to re-run.
 

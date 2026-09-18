@@ -164,3 +164,24 @@ dims); without it the same OpenAI-shaped calls fall back to
 - **OS-Genesis** (ACL 2025) — reverse task synthesis: infer the task from
   observed state–action–state triples.
 - **ToolCUA** (2026) — synthesize high-level tools that replace GUI sequences.
+
+## Licence
+
+**Proprietary. Copyright (c) 2026 Elamaran Elangovan and Aadi Dahake. All rights
+reserved.**
+
+Rights in this software are held **solely by Elamaran Elangovan and Aadi
+Dahake**. They alone may use, copy, modify, build, deploy, distribute or license
+it. No one else holds any right in it.
+
+This repository is published for demonstration, evaluation and portfolio review
+only. **Publication is not a licence.** If you are not named above, you may read
+it and link to it. You may not copy, modify, redistribute, deploy, or use it or
+any part of it in another product, service, dataset or model-training corpus
+without prior written permission from both copyright holders.
+
+Every source file carries a copyright notice and a reference identifier; these
+must not be removed or altered. Full terms in [LICENSE](LICENSE); summary in
+[NOTICE](NOTICE).
+
+Licensing enquiries: elango@squareshift.co

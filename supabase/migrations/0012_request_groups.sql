@@ -1,3 +1,10 @@
+-- Patchlet
+-- Copyright (c) 2026 Elamaran Elangovan and Aadi Dahake. All rights reserved.
+--
+-- Proprietary and confidential. Rights held solely by the copyright holders.
+-- No licence is granted to any other party. See LICENSE at the repository root.
+-- Ref: PTCH-CYEP-P7KH3E-BLOTE
+
 -- Feature requests are grouped before anything is filed.
 --
 -- The same gap reaches the agent many times, worded differently every time. Filing one issue per

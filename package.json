@@ -1,6 +1,12 @@
 {
   "name": "action-compiler",
   "private": true,
+  "license": "UNLICENSED",
+  "author": "Elamaran Elangovan",
+  "contributors": [
+    "Elamaran Elangovan",
+    "Aadi Dahake"
+  ],
   "version": "0.1.0",
   "type": "module",
   "workspaces": [

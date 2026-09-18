@@ -1,3 +1,12 @@
+/*
+ * Patchlet
+ * Copyright (c) 2026 Elamaran Elangovan and Aadi Dahake. All rights reserved.
+ *
+ * Proprietary and confidential. Rights held solely by the copyright holders.
+ * No licence is granted to any other party. See LICENSE at the repository root.
+ * Ref: PTCH-CYEP-P7KH3E-BLOTE
+ */
+
 /** "Mar 4, 2:05 PM" - the compact absolute time every console list uses. */
 export function formatDateTime(iso: string | null): string {
   if (!iso) return "-";

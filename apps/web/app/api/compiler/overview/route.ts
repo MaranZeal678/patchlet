@@ -1,3 +1,12 @@
+/*
+ * Patchlet
+ * Copyright (c) 2026 Elamaran Elangovan and Aadi Dahake. All rights reserved.
+ *
+ * Proprietary and confidential. Rights held solely by the copyright holders.
+ * No licence is granted to any other party. See LICENSE at the repository root.
+ * Ref: PTCH-CYEP-P7KH3E-BLOTE
+ */
+
 import { NextResponse } from "next/server";
 import { allProofs, allSessions, allTools, allWorkflows, latestRace, scatter, stepCount } from "@/lib/compiler/db";
 import { targetHealthy, targetOrigin } from "@/lib/compiler/target";

@@ -1,4 +1,13 @@
 #!/usr/bin/env node
+/*
+ * Patchlet
+ * Copyright (c) 2026 Elamaran Elangovan and Aadi Dahake. All rights reserved.
+ *
+ * Proprietary and confidential. Rights held solely by the copyright holders.
+ * No licence is granted to any other party. See LICENSE at the repository root.
+ * Ref: PTCH-CYEP-P7KH3E-BLOTE
+ */
+
 // Resets the demo: closes the worker's issues and pull requests in the target repository, deletes
 // its branches, clears escalations, request groups, conversations and trace events, and moves `main`
 // back to the `demo-baseline` tag. Run through vault-exec so the tokens are in the environment.
