@@ -184,4 +184,4 @@ Every source file carries a copyright notice and a reference identifier; these
 must not be removed or altered. Full terms in [LICENSE](LICENSE); summary in
 [NOTICE](NOTICE).
 
-Licensing enquiries: elango@squareshift.co
+Licensing enquiries: contact@elamaran.co
